@@ -17,6 +17,7 @@
 #include "ElaRadioButton.h"
 #include "ElaCalendarPicker.h"
 #include "ElaCheckBox.h"
+#include "hidapi.h"
 
 #pragma execution_character_set(push, "utf-8")
 
@@ -32,12 +33,17 @@ public:
     void initEdgeLayout();
     void initContent();
 
-    void initDeviceInformation();
+    void initDeviceInfoUi();
     void initParamInformation();
     void initTimeInformation();
     void initModeInformation();
 
     void createDockWidget(const QString& title,QWidget *widget,Qt::DockWidgetArea area);
+
+    Q_SLOT void onDIDSelectChanged(int index);
+    Q_SLOT void onDIDSelectChanged(int vid, int pid);
+    Q_SLOT void updateDeviceList();
+    Q_SLOT void updateDeviceInfo();
 
     Q_SLOT void showEvent(QShowEvent *event) override;
     Q_SLOT void hideEvent(QHideEvent *event) override;
@@ -46,7 +52,13 @@ private:
     ElaScrollPage* m_homePage{nullptr};
     QWidget* m_contentWidget{nullptr};
 
+    hid_device *hidDevice{nullptr};
     QWidget* m_deviceInfoWidget{nullptr};
+    ElaComboBox* m_deviceComboBox{nullptr};
+    ElaLineEdit* m_hidVidLineEdit{nullptr};
+    ElaLineEdit* m_hidPidLineEdit{nullptr};
+    ElaLineEdit* m_deviceManufacturerEditLine{nullptr};
+    ElaLineEdit* m_deviceProductEditLine{nullptr};
     ElaLineEdit* m_deviceIdEditLine{nullptr};
     ElaLineEdit* m_deviceTypeEditLine{nullptr};
     ElaLineEdit* m_deviceVersionEditLine{nullptr};
@@ -71,8 +83,6 @@ private:
     ElaCheckBox* m_modeCheckBox{nullptr};
     ElaCalendarPicker* m_modeCalendarPicker{nullptr};
 
-
-    HIDSelectPage* m_hidSelectPage{nullptr};
     LogPage* m_logPage{nullptr};
     ElaMenu* m_docketMenu = nullptr;
 
