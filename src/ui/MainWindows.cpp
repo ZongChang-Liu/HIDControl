@@ -8,16 +8,18 @@
 #include <QTimer>
 #include <QDebug>
 #include <QDateTime>
-#include <QPropertyAnimation>
 #include "MainWindows.h"
-#include "LogPage.h"
-#include "HIDFilterPage.h"
 #include "ElaStatusBar.h"
 #include "ElaText.h"
 #include "ElaDockWidget.h"
 #include "ElaMenuBar.h"
 #include "ElaScrollPageArea.h"
-#include "ElaTheme.h"
+
+#include "control/HIDDataFrame.h"
+#include "control/HIDController.h"
+#include "control/HIDDef.h"
+#include "ui/LogPage.h"
+#include "ui/HIDFilterPage.h"
 
 #ifdef Q_OS_WIN
 #include <windows.h>
@@ -27,6 +29,7 @@
 #endif
 
 MainWindows::MainWindows(QWidget *parent) : ElaWindow(parent) {
+    m_hidController = new HIDController(this);
     initSystem();
     initWindow();
     initEdgeLayout();
@@ -42,15 +45,9 @@ MainWindows::MainWindows(QWidget *parent) : ElaWindow(parent) {
     });
 
     connect(m_deviceComboBox, SIGNAL(currentIndexChanged(int)), this, SLOT(onDIDSelectChanged(int)));
-    connect(m_hidFilterPage, &HIDFilterPage::sigHIDSelected, this, [=](bool checked, const QString &path) {
-        if (checked){
-            m_deviceComboBox->addItem(path);
-        } else {
-            m_deviceComboBox->removeItem(m_deviceComboBox->findText(path));
-        }
-    });
-    updateDeviceList();
+    connect(m_hidController, &HIDController::sigDeviceStatus, this, &MainWindows::onDeviceStatus);
     m_logPage->appendLog(tr("初始化完成！"));
+    updateDeviceList();
 }
 
 MainWindows::~MainWindows() = default;
@@ -103,8 +100,8 @@ void MainWindows::initEdgeLayout() {
     this->setCustomWidget(ElaAppBarType::LeftArea, customWidget);
     connect(menuBar, &ElaMenuBar::triggered, this, &MainWindows::onActionTriggered);
 
-    m_hidFilterPage = new HIDFilterPage(this);
-    createDockWidget(tr("HID过滤"), m_hidFilterPage, Qt::RightDockWidgetArea);
+    // m_hidFilterPage = new HIDFilterPage(this);
+    // createDockWidget(tr("HID过滤"), m_hidFilterPage, Qt::RightDockWidgetArea);
 
     m_logPage = new LogPage(this);
     createDockWidget(tr("日志"), m_logPage, Qt::RightDockWidgetArea);
@@ -536,44 +533,41 @@ void MainWindows::initModeInfoUi() {
     modeInfoText->setVisible(false);
 }
 
-void MainWindows::onDIDSelectChanged(int index) {
-    QString path = m_deviceComboBox->currentText();
+void MainWindows::onDIDSelectChanged(int index) const
+{
+    const QString path = m_deviceComboBox->currentText();
     if (path.isEmpty()) {
         return;
     }
-    if (m_hidDevice != nullptr) {
-        hid_close(m_hidDevice);
-        m_hidDevice = nullptr;
-    }
-    m_hidDevice = hid_open_path(path.toStdString().c_str());
-    if (m_hidDevice == nullptr) {
-        return;
-    }
-    qDebug() << "Open HID Device Success";
-    updateDeviceInfo();
+
+    m_hidController->openDevice(path);
 }
 
-void MainWindows::updateDeviceInfo() {
-    if (m_hidDevice == nullptr) {
-        return;
+void MainWindows::updateDeviceInfo() const
+{
+    const hid_device_info *pInfo = m_hidController->getDeviceInfo();
+    if (pInfo != nullptr)
+    {
+        m_deviceComboBox->setCurrentText(pInfo->path);
+        m_deviceManufacturerEditLine->setText(QString::fromWCharArray(pInfo->manufacturer_string));
+        m_deviceProductEditLine->setText(QString::fromWCharArray(pInfo->product_string));
+        m_deviceIdEditLine->setText("0x" + QString::number(pInfo->product_id,16).toUpper());
+        m_deviceTypeEditLine->setText("0x" + QString::number(pInfo->usage,16).toUpper());
+        m_deviceVersionEditLine->setText("0x" + QString::number(pInfo->release_number,16).toUpper());
+        m_hidVidLineEdit->setText("0x" + QString::number(pInfo->vendor_id,16).toUpper());
+        m_hidPidLineEdit->setText("0x" + QString::number(pInfo->product_id,16).toUpper());
     }
-
-    hid_device_info *pInfo = hid_get_device_info(m_hidDevice);
-    m_deviceComboBox->setCurrentText(pInfo->path);
-    m_deviceManufacturerEditLine->setText(QString::fromWCharArray(pInfo->manufacturer_string));
-    m_deviceProductEditLine->setText(QString::fromWCharArray(pInfo->product_string));
-    m_deviceIdEditLine->setText("0x" + QString::number(pInfo->product_id,16).toUpper());
-    m_deviceTypeEditLine->setText("0x" + QString::number(pInfo->usage,16).toUpper());
-    m_deviceVersionEditLine->setText("0x" + QString::number(pInfo->release_number,16).toUpper());
-    m_hidVidLineEdit->setText("0x" + QString::number(pInfo->vendor_id,16).toUpper());
-    m_hidPidLineEdit->setText("0x" + QString::number(pInfo->product_id,16).toUpper());
 }
 
 void MainWindows::updateDeviceList() {
-    hid_device_info *hid_info;
-    hid_info = hid_enumerate(0x0, 0x0);
+    hid_device_info *hid_info = hid_enumerate(0x0, 0x0);
     QList<HiDDeviceInfo> hidDeviceInfoList;
-    for (hid_device_info *info = hid_info; info != nullptr; info = info->next) {
+    for (const hid_device_info *info = hid_info; info != nullptr; info = info->next) {
+        QString product = QString::fromWCharArray(info->manufacturer_string);
+        if (product.isEmpty() || !product.contains(PRODUCT)) {
+            continue;
+        }
+
         HiDDeviceInfo deviceInfo;
         deviceInfo.vid = info->vendor_id;
         deviceInfo.pid = info->product_id;
@@ -586,34 +580,52 @@ void MainWindows::updateDeviceList() {
 
     for (const auto &info : hidDeviceInfoList) {
         if(!m_hidDeviceInfoList.contains(info)) {
+            m_deviceComboBox->addItem(info.path);
             if(m_logPage){
                 m_logPage->appendLog(tr("设备已连接：") + info.manufacturer + " " + info.product + " VID:0x" +
                                          QString::number(info.vid, 16).toUpper() + " PID:0x" +
                                          QString::number(info.pid, 16).toUpper());
             }
-            m_hidFilterPage->addHIDItem(info.manufacturer, info.product,QString::number(info.vid, 16).toUpper(),
+            if (m_hidFilterPage)
+            {
+                m_hidFilterPage->addHIDItem(info.manufacturer, info.product,QString::number(info.vid, 16).toUpper(),
                                          QString::number(info.pid, 16).toUpper());
+            }
         }
     }
 
     for (const auto &info : m_hidDeviceInfoList) {
         if(!hidDeviceInfoList.contains(info)) {
+            m_deviceComboBox->removeItem(m_deviceComboBox->findText(info.path));
             if(m_logPage){
                 m_logPage->appendLog(tr("设备已断开：") + info.manufacturer + " " + info.product + " VID:0x" +
                                          QString::number(info.vid, 16).toUpper() + " PID:0x" +
                                          QString::number(info.pid, 16).toUpper());
             }
-            m_hidFilterPage->removeHIDItem(info.manufacturer, info.product,QString::number(info.vid, 16).toUpper(),
-                                            QString::number(info.pid, 16).toUpper());
+            if (m_hidFilterPage)
+            {
+                m_hidFilterPage->removeHIDItem(info.manufacturer, info.product,QString::number(info.vid, 16).toUpper(),
+                                                QString::number(info.pid, 16).toUpper());
+            }
         }
     }
 
     m_hidDeviceInfoList = hidDeviceInfoList;
-    QMultiMap<QString,QMultiMap<QString,QString>> hidMap;
-    for (const auto &info : m_hidDeviceInfoList) {
-        QMultiMap<QString,QString> map;
-        map.insert(info.product,"VID:0x" + QString::number(info.vid,16).toUpper() + " PID:0x" + QString::number(info.pid,16).toUpper() + " " + info.path);
-        hidMap.insert(info.manufacturer,map);
+}
+
+void MainWindows::onDeviceStatus(const int status)
+{
+    switch (status)
+    {
+    case HIDDef::Device_Opened:
+        updateDeviceInfo();
+        break;
+    case HIDDef::Device_Error:
+        break;
+    case HIDDef::Device_Closed:
+        break;
+    default:
+            break;
     }
 }
 

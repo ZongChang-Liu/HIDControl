@@ -28,11 +28,7 @@ qt5_add_big_resources(PROJECT_SOURCES resources.qrc ${ELAWIDGETTOOLS_PREFIX_DIR}
 include_directories(${PROJECT_NAME} "src")
 add_executable(${PROJECT_NAME}
 #        WIN32
-        main.cpp ${HEADERS} ${SOURCES} ${PROJECT_SOURCES} logo.rc
-        src/ui/TreeItem.cpp
-        src/ui/TreeItem.h
-        src/ui/HIDModel.cpp
-        src/ui/HIDModel.h)
+        main.cpp ${HEADERS} ${SOURCES} ${PROJECT_SOURCES} logo.rc)
 foreach (QT_MODULE ${QT_MODULES})
     target_link_libraries(${PROJECT_NAME} PUBLIC Qt${QT_VERSION_MAJOR}::${QT_MODULE})
 endforeach (QT_MODULE)

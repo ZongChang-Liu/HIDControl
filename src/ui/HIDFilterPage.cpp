@@ -29,88 +29,9 @@ HIDFilterPage::~HIDFilterPage() = default;
 
 void
 HIDFilterPage::addHIDItem(const QString &manufacturer, const QString &product, const QString &vid, const QString &pid) {
-    TreeItem *rootItem = m_hidModel->getRootItem();
-    if (m_hidModel->rowCount() == 0) {
-        auto *manufacturerItem = new TreeItem(manufacturer, rootItem);
-        rootItem->appendChildItem(manufacturerItem);
 
-        auto *productItem = new TreeItem(product, manufacturerItem);
-        manufacturerItem->appendChildItem(productItem);
-
-        QString vidPid = "VID:0x" + vid + " PID:0x" + pid;
-        auto *vidPidItem = new TreeItem(vidPid, productItem);
-        productItem->appendChildItem(vidPidItem);
-        return;
-    }
-
-    bool isExist = false;
-    TreeItem *manufacturerItem = nullptr;
-    for (int i = 0; i < rootItem->getChildrenItems().count(); i++) {
-        manufacturerItem = rootItem->getChildrenItems().at(i);
-        if (manufacturerItem->getItemTitle() == manufacturer) {
-            isExist = true;
-            break;
-        }
-    }
-    if (!isExist) {
-        manufacturerItem = new TreeItem(manufacturer, rootItem);
-        rootItem->appendChildItem(manufacturerItem);
-    }
-
-    bool isProductExist = false;
-    TreeItem *productItem = nullptr;
-    for (int i = 0; i < manufacturerItem->getChildrenItems().count(); i++) {
-        productItem = manufacturerItem->getChildrenItems().at(i);
-        if (productItem->getItemTitle() == product) {
-            isProductExist = true;
-            break;
-        }
-    }
-
-    if (!isProductExist) {
-        productItem = new TreeItem(product, manufacturerItem);
-        manufacturerItem->appendChildItem(productItem);
-    }
-
-    QString vidPid = "VID:0x" + vid + " PID:0x" + pid;
-    for (int i = 0; i < productItem->getChildrenItems().count(); i++) {
-        if (productItem->getChildrenItems().at(i)->getItemTitle() == vidPid) {
-            return;
-        }
-    }
-
-    auto *vidPidItem = new TreeItem(vidPid, productItem);
-    productItem->appendChildItem(vidPidItem);
 }
 
 void HIDFilterPage::removeHIDItem(const QString &manufacturer, const QString &product, const QString &vid,
                                   const QString &pid) {
-    TreeItem *rootItem = m_hidModel->getRootItem();
-    TreeItem *manufacturerItem = nullptr;
-    TreeItem *productItem = nullptr;
-    TreeItem *vidPidItem = nullptr;
-    for (int i = 0; i < rootItem->getChildrenItems().count(); i++) {
-        manufacturerItem = rootItem->getChildrenItems().at(i);
-        if (manufacturerItem->getItemTitle() == manufacturer) {
-            for (int j = 0; j < manufacturerItem->getChildrenItems().count(); j++) {
-                productItem = manufacturerItem->getChildrenItems().at(j);
-                if (productItem->getItemTitle() == product) {
-                    for (int k = 0; k < productItem->getChildrenItems().count(); k++) {
-                        vidPidItem = productItem->getChildrenItems().at(k);
-                        if (vidPidItem->getItemTitle() == "VID:0x" + vid + " PID:0x" + pid) {
-                            productItem->removeChildItem(vidPidItem);
-                            if (productItem->getChildrenItems().count() == 0) {
-                                manufacturerItem->removeChildItem(productItem);
-                                if (manufacturerItem->getChildrenItems().count() == 0) {
-                                    rootItem->removeChildItem(manufacturerItem);
-                                }
-                            }
-                            return;
-                        }
-                    }
-                }
-            }
-        }
-    }
-
 }

@@ -23,6 +23,7 @@
 
 class LogPage;
 class HIDFilterPage;
+class HIDController;
 class MainWindows : public ElaWindow {
 Q_OBJECT
 public:
@@ -48,11 +49,13 @@ public:
 
     void createDockWidget(const QString &title, QWidget *widget, Qt::DockWidgetArea area);
 
-    Q_SLOT void onDIDSelectChanged(int index);
+    Q_SLOT void onDIDSelectChanged(int index) const;
 
     Q_SLOT void updateDeviceList();
 
-    Q_SLOT void updateDeviceInfo();
+    Q_SLOT void updateDeviceInfo() const;
+
+    Q_SLOT void onDeviceStatus(int status);
 
     Q_SLOT void showEvent(QShowEvent *event) override;
 
@@ -70,6 +73,8 @@ public:
 #endif
 #endif
 private:
+    const QString PRODUCT{"Logitech"};
+
     ElaScrollPage *m_homePage{nullptr};
     QWidget *m_contentWidget{nullptr};
 
@@ -85,7 +90,7 @@ private:
         }
     };
     QList<HiDDeviceInfo> m_hidDeviceInfoList;
-    hid_device *m_hidDevice{nullptr};
+    HIDController *m_hidController{nullptr};
     QWidget *m_deviceInfoWidget{nullptr};
     ElaComboBox *m_deviceComboBox{nullptr};
     ElaLineEdit *m_hidVidLineEdit{nullptr};
