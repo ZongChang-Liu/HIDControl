@@ -28,6 +28,9 @@ QStringList LogModel::getLogList() const {
 }
 
 void LogModel::appendLogList(const QString &log) {
+    if (!this->m_logList.isEmpty() && this->m_logList.last() == log) {
+        return;
+    }
     this->beginResetModel();
     this->m_logList.append(log);
     this->endResetModel();
@@ -60,18 +63,19 @@ QVariant LogModel::data(const QModelIndex &index, int role) const {
 LogPage::LogPage(QWidget *parent) : QWidget(parent) {
     auto* mainLayout = new QVBoxLayout(this);
     mainLayout->setContentsMargins(0, 5, 5, 0);
-    auto* logView = new ElaListView(this);
-    logView->setIsTransparent(true);
+    m_logListView = new ElaListView(this);
+    m_logListView->setIsTransparent(true);
     m_logModel = new LogModel(this);
-    logView->setModel(m_logModel);
-    mainLayout->addWidget(logView);
+    m_logListView->setModel(m_logModel);
+    mainLayout->addWidget(m_logListView);
     connect(ElaLog::getInstance(), &ElaLog::logMessage, this, [=](const QString& log) {
         m_logModel->appendLogList(log);
     });
-    m_logModel->appendLogList("测试条例 1");
-    m_logModel->appendLogList("测试条例 2");
-    m_logModel->appendLogList("测试条例 3");
-    m_logModel->appendLogList("测试条例 4");
+}
+
+void LogPage::appendLog(const QString &log) {
+    m_logModel->appendLogList(log);
+    m_logListView->scrollToBottom();
 }
 
 LogPage::~LogPage() = default;

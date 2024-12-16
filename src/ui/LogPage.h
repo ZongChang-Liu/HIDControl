@@ -28,13 +28,16 @@ private:
     QStringList m_logList;
 };
 
+class ElaListView;
 class LogPage : public QWidget {
     Q_OBJECT
 public:
     explicit LogPage(QWidget *parent = nullptr);
     ~LogPage() override;
+    void appendLog(const QString& log);
 private:
     LogModel* m_logModel{nullptr};
+    ElaListView* m_logListView{nullptr};
 };
 
 
