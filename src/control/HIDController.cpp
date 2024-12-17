@@ -13,10 +13,15 @@ HIDController::HIDController(QObject* parent) : QObject(parent)
     m_worker->moveToThread(m_thread);
     m_thread->start();
     connect(m_worker, &HIDWork::sigDeviceStatus, this, &HIDController::sigDeviceStatus);
-    connect(m_worker, &HIDWork::sigCommandResult, this, &HIDController::sigCommandResult);
+    connect(m_worker, &HIDWork::sigSendCommand, this, &HIDController::sigSendCommand);
+    connect(m_worker, &HIDWork::sigReceiveCommand, this, &HIDController::sigReceiveCommand);
 }
 
-HIDController::~HIDController() = default;
+HIDController::~HIDController(){
+    closeDevice();
+    m_thread->quit();
+    m_thread->wait();
+};
 
 void HIDController::openDevice(const QString& path) const
 {
@@ -34,11 +39,11 @@ int HIDController::sendCommand(const int cmd, const QByteArray& data, const bool
     {
         int ret;
         QMetaObject::invokeMethod(m_worker, "sendCommand", Qt::BlockingQueuedConnection,
-            Q_RETURN_ARG(int,ret), Q_ARG(int, cmd), Q_ARG(QByteArray, data), Q_ARG(int, timeout));
+            Q_RETURN_ARG(int,ret), Q_ARG(int, cmd), Q_ARG(QByteArray, data), Q_ARG(bool,isAsync), Q_ARG(int, timeout));
         return ret;
     }
 
-    QMetaObject::invokeMethod(m_worker, "sendCommand", Qt::QueuedConnection, Q_ARG(int, cmd), Q_ARG(QByteArray, data), Q_ARG(int, timeout));
+    QMetaObject::invokeMethod(m_worker, "sendCommand", Qt::QueuedConnection, Q_ARG(int, cmd), Q_ARG(QByteArray, data), Q_ARG(bool,isAsync), Q_ARG(int, timeout));
     return 0;
 }
 

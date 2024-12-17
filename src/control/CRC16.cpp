@@ -6,13 +6,13 @@
 
 #include "CRC16.h"
 
-unsigned short CRC16::calculate(const unsigned char *date, const unsigned short len) {
+unsigned short CRC16::calculate(const unsigned char *data, const unsigned short len) {
     unsigned short crc = 0xFFFF;
     for (unsigned short i = 0; i < len; i++) {
-        crc ^= date[i];
+        crc ^= data[i];
         for (unsigned char j = 0; j < 8; j++) {
             if (crc & 0x01) {
-                crc = crc >> 1 ^ 0xA001;
+                crc = (crc >> 1) ^ 0xA001;
             } else {
                 crc >>= 1;
             }

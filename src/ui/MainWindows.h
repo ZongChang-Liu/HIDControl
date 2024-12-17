@@ -73,7 +73,7 @@ public:
 #endif
 #endif
 private:
-    const QString PRODUCT{"Logitech"};
+    const QString PRODUCT{"FRESVUE"};
 
     ElaScrollPage *m_homePage{nullptr};
     QWidget *m_contentWidget{nullptr};

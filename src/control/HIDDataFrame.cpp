@@ -8,55 +8,58 @@
 
 #include "CRC16.h"
 
-QByteArray HIDDataFrame::createCommand(HIDDataFrame& frame)
+unsigned char* HIDDataFrame::createCommand(HIDDataFrame& frame)
 {
-    QByteArray cmd;
+    frame.m_length = sizeof(frame.m_frameHead) + sizeof(frame.m_frameNumber) + sizeof(frame.m_userType) + sizeof(frame.m_userId) +
+                 sizeof(frame.m_code) + frame.m_date.size() + 2 + sizeof(frame.m_frameTail);
+    auto* cmdData = new unsigned char[frame.m_length];
+    memset(cmdData, 0, frame.m_length);
 
-    //frame number 16bit
     frame.m_frameNumber++;
     if (frame.m_frameNumber > 0xFFFF) {
         frame.m_frameNumber = 0;
     }
-    cmd.append(static_cast<char>(frame.m_frameNumber));
-    cmd.append(static_cast<char>(frame.m_frameNumber >> 8));
+
+    cmdData[0] = frame.m_frameHead;
+    cmdData[1] = frame.m_frameNumber;
+    cmdData[2] = frame.m_frameNumber >> 8;
 
 
     //frame length 16bit
-    cmd.append(static_cast<char>(0));
-    cmd.append(static_cast<char>(0));
+    cmdData[3] = frame.m_length;
+    cmdData[4] = frame.m_length >> 8;
 
     //user type 8bit
-    cmd.append(static_cast<char>(frame.m_userType));
+    cmdData[5] = frame.m_userType;
 
     //user id 32bit
-    cmd.append(static_cast<char>(frame.m_userId));
-    cmd.append(static_cast<char>(frame.m_userId >> 8));
-    cmd.append(static_cast<char>(frame.m_userId >> 16));
-    cmd.append(static_cast<char>(frame.m_userId >> 24));
+    cmdData[6] = frame.m_userId;
+    cmdData[7] = frame.m_userId >> 8;
+    cmdData[8] = frame.m_userId >> 16;
+    cmdData[9] = frame.m_userId >> 24;
 
     //command code 16bit
-    cmd.append(static_cast<char>(frame.m_code));
-    cmd.append(static_cast<char>(frame.m_code >> 8));
+    cmdData[10] = frame.m_code;
+    cmdData[11] = frame.m_code >> 8;
 
-    //data
-    cmd.append(frame.m_date);
+    if (!frame.m_date.isEmpty()) {
+        int i = 12;
+        for (char& item: frame.m_date) {
+            cmdData[i] = item;
+            i++;
+        }
+    }
 
     //crc 16bit
-    const unsigned short crc = CRC16::calculate(reinterpret_cast<const unsigned char*>(cmd.data()), cmd.size());
-    cmd.append(static_cast<char>(crc));
-    cmd.append(static_cast<char>(crc >> 8));
+    unsigned short crc = CRC16::calculate(cmdData, frame.m_length - 3);
+    cmdData[frame.m_length - 3] = crc;
+    cmdData[frame.m_length - 2] = crc >> 8;
 
-    //head 8bit
-    cmd.prepend(static_cast<char>(frame.m_frameHead));
     //tail 8bit
-    cmd.append(static_cast<char>(frame.m_frameTail));
+    cmdData[frame.m_length - 1] = frame.m_frameTail;
 
-    //frame length
-    cmd[4] = static_cast<char>(cmd.size());
-    cmd[3] = static_cast<char>(cmd.size() >> 8);
-    cmd.prepend(0x01);
-    qDebug() << "HIDDataFrame----->" << __func__ << cmd.toHex();
-    return cmd;
+    qDebug() << "HIDDataFrame----->" << __func__ << QByteArray(reinterpret_cast<const char*>(cmdData), (int)frame.m_length).toHex();
+    return cmdData;
 }
 
 bool HIDDataFrame::parseCommand(const QByteArray& data, HIDDataFrame& frame)

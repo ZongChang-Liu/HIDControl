@@ -32,10 +32,11 @@ namespace HIDDef
     enum CmdCode
     {
         Setting_Temp_Type = 0x0001,
-        Setting_Log_Interval = 0x0002,
-        Setting_Start_Delay = 0x0003,
-        Setting_Device_Time = 0x0004,
-        Setting_Device_Timezone = 0x0005,
+        Setting_Value_Threshold = 0x0002,
+        Setting_Log_Interval = 0x0003,
+        Setting_Start_Delay = 0x0004,
+        Setting_Device_Time = 0x0005,
+        Setting_Device_Timezone = 0x0006,
         Setting_Start_Mode = 0x0007,
         Setting_Device_Stop = 0x0008,
 

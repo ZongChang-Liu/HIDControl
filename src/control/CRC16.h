@@ -9,7 +9,7 @@
 
 class CRC16 {
 public:
-    static unsigned short calculate(const unsigned char *date,unsigned short len);
+    static unsigned short calculate(const unsigned char *data, unsigned short len);
     static bool check(const unsigned char *str, unsigned short len);
 };
 

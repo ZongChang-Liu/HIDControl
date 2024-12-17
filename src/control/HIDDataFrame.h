@@ -19,8 +19,9 @@ public:
     uint32_t m_userId{0};
     uint16_t m_code{0};
     QByteArray m_date{};
+    unsigned long long m_length{0};
 
-    static QByteArray createCommand(HIDDataFrame &frame);
+    static unsigned char* createCommand(HIDDataFrame &frame);
 
     static bool parseCommand(const QByteArray &data,HIDDataFrame &frame);
 

@@ -1,6 +1,8 @@
 ﻿#include <QApplication>
+#include <QDebug>
 #include "ui/MainWindows.h"
 #include "ElaApplication.h"
+#include "control/CRC16.h"
 
 #ifdef _WIN32
     #pragma comment (lib,"setupapi.lib")
@@ -18,7 +20,6 @@ int main(int argc, char *argv[]) {
 #endif
 #endif
     QApplication a(argc, argv);
-
     eApp->init();
     MainWindows w;
     w.show();

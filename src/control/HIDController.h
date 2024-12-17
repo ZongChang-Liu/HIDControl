@@ -23,7 +23,8 @@ public:
     hid_device_info* getDeviceInfo() const;
 
     Q_SIGNAL void sigDeviceStatus(int status);
-    Q_SIGNAL void sigCommandResult(int cmd, QByteArray data);
+    Q_SIGNAL void sigSendCommand(const QByteArray& data);
+    Q_SIGNAL void sigReceiveCommand(const QByteArray& data);
 private:
     QThread* m_thread;
     HIDWork* m_worker;
