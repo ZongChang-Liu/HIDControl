@@ -564,9 +564,9 @@ void MainWindows::updateDeviceList() {
     QList<HiDDeviceInfo> hidDeviceInfoList;
     for (const hid_device_info *info = hid_info; info != nullptr; info = info->next) {
         QString product = QString::fromWCharArray(info->manufacturer_string);
-        if (product.isEmpty() || !product.contains(PRODUCT)) {
-            continue;
-        }
+//        if (product.isEmpty() || !product.contains(PRODUCT)) {
+//            continue;
+//        }
 
         HiDDeviceInfo deviceInfo;
         deviceInfo.vid = info->vendor_id;

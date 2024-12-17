@@ -20,7 +20,10 @@ unsigned char* HIDDataFrame::createCommand(HIDDataFrame& frame)
         frame.m_frameNumber = 0;
     }
 
+    //head 8bit
     cmdData[0] = frame.m_frameHead;
+
+    //frame number 16bit
     cmdData[1] = frame.m_frameNumber;
     cmdData[2] = frame.m_frameNumber >> 8;
 
@@ -43,10 +46,8 @@ unsigned char* HIDDataFrame::createCommand(HIDDataFrame& frame)
     cmdData[11] = frame.m_code >> 8;
 
     if (!frame.m_date.isEmpty()) {
-        int i = 12;
-        for (char& item: frame.m_date) {
-            cmdData[i] = item;
-            i++;
+        for (int i = 12; i < frame.m_date.size() + 12; ++i) {
+            cmdData[i] = frame.m_date[i - 12];
         }
     }
 
@@ -57,7 +58,7 @@ unsigned char* HIDDataFrame::createCommand(HIDDataFrame& frame)
 
     //tail 8bit
     cmdData[frame.m_length - 1] = frame.m_frameTail;
-
+    //打印数组大小
     qDebug() << "HIDDataFrame----->" << __func__ << QByteArray(reinterpret_cast<const char*>(cmdData), (int)frame.m_length).toHex();
     return cmdData;
 }

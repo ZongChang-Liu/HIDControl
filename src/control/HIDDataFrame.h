@@ -14,7 +14,6 @@ class HIDDataFrame {
 public:
     explicit HIDDataFrame() = default;
     ~HIDDataFrame() = default;
-
     uint8_t m_userType{0};
     uint32_t m_userId{0};
     uint16_t m_code{0};
@@ -28,7 +27,7 @@ public:
     friend QDebug operator<<(QDebug debug, const HIDDataFrame &frame);
 
 private:
-    const uint m_frameHead{0xAA};
+    const uint8_t m_frameHead{0xAA};
     const uint8_t m_frameTail{0x55};
     uint16_t m_frameNumber{0};
 };
