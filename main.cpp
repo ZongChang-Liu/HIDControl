@@ -3,6 +3,7 @@
 #include "ui/MainWindows.h"
 #include "ElaApplication.h"
 #include "control/CRC16.h"
+#include "control/HIDDataFrame.h"
 
 #ifdef _WIN32
     #pragma comment (lib,"setupapi.lib")
@@ -22,6 +23,7 @@ int main(int argc, char *argv[]) {
     QApplication a(argc, argv);
     eApp->init();
     MainWindows w;
+    w.resize(700, 900);
     w.show();
     return QApplication::exec();
 }

@@ -18,17 +18,17 @@ public:
     uint32_t m_userId{0};
     uint16_t m_code{0};
     QByteArray m_date{};
-    unsigned long long m_length{0};
+    uint16_t m_length{0};
 
-    static unsigned char* createCommand(HIDDataFrame &frame);
+    static uint8_t* createCommand(HIDDataFrame &frame);
 
-    static bool parseCommand(const QByteArray &data,HIDDataFrame &frame);
+    static bool parseCommand(const uint8_t* data,int length, HIDDataFrame &frame);
 
     friend QDebug operator<<(QDebug debug, const HIDDataFrame &frame);
 
 private:
-    const uint8_t m_frameHead{0xAA};
-    const uint8_t m_frameTail{0x55};
+    static const uint8_t m_frameHead{0xAA};
+    static const uint8_t m_frameTail{0x55};
     uint16_t m_frameNumber{0};
 };
 

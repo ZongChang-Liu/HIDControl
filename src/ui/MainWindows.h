@@ -14,6 +14,7 @@
 #include "ElaComboBox.h"
 #include "ElaScrollPage.h"
 #include "ElaSpinBox.h"
+#include "ElaDoubleSpinBox.h"
 #include "ElaRadioButton.h"
 #include "ElaCalendarPicker.h"
 #include "ElaCheckBox.h"
@@ -48,6 +49,14 @@ public:
     void initModeInfoUi();
 
     void createDockWidget(const QString &title, QWidget *widget, Qt::DockWidgetArea area);
+
+    Q_SLOT void onSetTempType() const;
+    Q_SLOT void onSetThreshold() const;
+    Q_SLOT void onSetLogInterval() const;
+    Q_SLOT void onSetStartDelay() const;
+    Q_SLOT void onSetDeviceTime() const;
+    Q_SLOT void onSetMode() const;
+    Q_SLOT void onStopMode() const;
 
     Q_SLOT void onDIDSelectChanged(int index) const;
 
@@ -105,12 +114,15 @@ private:
     ElaComboBox *m_paramComboBox{nullptr};
     ElaText *m_paramText{nullptr};
     ElaComboBox *m_paramTypeComboBox{nullptr};
-    ElaLineEdit *m_paramThresholdLowEditLine{nullptr};
-    ElaLineEdit *m_paramThresholdHighEditLine{nullptr};
+    ElaDoubleSpinBox *m_paramThresholdLowSpinBox{nullptr};
+    ElaDoubleSpinBox *m_paramThresholdHighSpinBox{nullptr};
     ElaSpinBox *m_paramUpdateIntervalSpinBox{nullptr};
 
     QWidget *m_timeInfoWidget{nullptr};
-    ElaLineEdit *m_deviceTimeEditLine{nullptr};
+    ElaCalendarPicker* m_deviceTimeCalendarPicker{nullptr};
+    ElaComboBox *m_deviceTimeHourComboBox{nullptr};
+    ElaComboBox *m_deviceTimeMinuteComboBox{nullptr};
+    ElaComboBox *m_deviceTimeSecondComboBox{nullptr};
     ElaLineEdit *m_systemTimeEditLine{nullptr};
     ElaComboBox *m_timeZoneHourComboBox{nullptr};
     ElaComboBox *m_timeZoneMinuteComboBox{nullptr};
@@ -120,6 +132,9 @@ private:
     ElaRadioButton *m_modeRadioTimeMode{nullptr};
     ElaCheckBox *m_modeCheckBox{nullptr};
     ElaCalendarPicker *m_modeCalendarPicker{nullptr};
+    ElaComboBox *m_modeHourComboBox{nullptr};
+    ElaComboBox *m_modeMinuteComboBox{nullptr};
+    ElaComboBox *m_modeSecondComboBox{nullptr};
 
     HIDFilterPage *m_hidFilterPage{nullptr};
     LogPage *m_logPage{nullptr};

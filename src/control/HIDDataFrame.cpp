@@ -4,14 +4,15 @@
 //
 //
 #include <QDebug>
+#include <iostream>
 #include "HIDDataFrame.h"
 
 #include "CRC16.h"
 
 unsigned char* HIDDataFrame::createCommand(HIDDataFrame& frame)
 {
-    frame.m_length = sizeof(frame.m_frameHead) + sizeof(frame.m_frameNumber) + sizeof(frame.m_userType) + sizeof(frame.m_userId) +
-                 sizeof(frame.m_code) + frame.m_date.size() + 2 + sizeof(frame.m_frameTail);
+    frame.m_length = sizeof(HIDDataFrame::m_frameHead) + sizeof(frame.m_frameNumber) + sizeof (frame.m_length)+ sizeof(frame.m_userType) + sizeof(frame.m_userId) +
+                 sizeof(frame.m_code) + frame.m_date.size() + 2 + sizeof(HIDDataFrame::m_frameTail);
     auto* cmdData = new unsigned char[frame.m_length];
     memset(cmdData, 0, frame.m_length);
 
@@ -21,7 +22,7 @@ unsigned char* HIDDataFrame::createCommand(HIDDataFrame& frame)
     }
 
     //head 8bit
-    cmdData[0] = frame.m_frameHead;
+    cmdData[0] = HIDDataFrame::m_frameHead;
 
     //frame number 16bit
     cmdData[1] = frame.m_frameNumber;
@@ -52,85 +53,68 @@ unsigned char* HIDDataFrame::createCommand(HIDDataFrame& frame)
     }
 
     //crc 16bit
-    unsigned short crc = CRC16::calculate(cmdData, frame.m_length - 3);
+    uint16_t crc = CRC16::calculate(cmdData, frame.m_length - 3);
     cmdData[frame.m_length - 3] = crc;
     cmdData[frame.m_length - 2] = crc >> 8;
 
     //tail 8bit
-    cmdData[frame.m_length - 1] = frame.m_frameTail;
+    cmdData[frame.m_length - 1] = HIDDataFrame::m_frameTail;
     //打印数组大小
-    qDebug() << "HIDDataFrame----->" << __func__ << QByteArray(reinterpret_cast<const char*>(cmdData), (int)frame.m_length).toHex();
+    qDebug() << "HIDDataFrame----->" << __func__ << frame;
     return cmdData;
 }
 
-bool HIDDataFrame::parseCommand(const QByteArray& data, HIDDataFrame& frame)
+bool HIDDataFrame::parseCommand(const unsigned char* data, int length, HIDDataFrame& frame)
 {
-    qDebug() << "HIDDataFrame----->" << __func__ << data.toHex();
-    try {
-        if (data.isEmpty()) {
-            qDebug() << "HIDDataFrame---->\n" << __func__
-                     << "data error";
-            return false;
-        }
+    QByteArray cmdData((char*)data, length);
 
-        if (data.length() < 4) {
-            qDebug() << "HIDDataFrame---->\n" << __func__
-                     << "length error";
-            return false;
-        }
-
-        const auto head = static_cast<unsigned char>(data[0]);
-        if (head != 0xAA) {
-            qDebug() << "HIDDataFrame---->\n" << __func__
-                     << "head error";
-            return false;
-        }
-
-        const auto tail = static_cast<unsigned char>(data[data.size() - 1]);
-        if (tail != 0xFF) {
-            qDebug() << "HIDDataFrame---->\n" << __func__
-                     << "tail error";
-            return false;
-        }
-
-        QByteArray crc = data.mid(1, data.size() - 3);
-        if (!CRC16::check(reinterpret_cast<const unsigned char*>(crc.data()), crc.size())) {
-            qDebug() << "HIDDataFrame---->\n" << __func__
-                     << "crc error";
-            return false;
-        }
-
-        frame.m_frameNumber = data[2] << 8 | data[1];
-
-        const unsigned int length = static_cast<unsigned char>(data[4]) << 8 | static_cast<unsigned char>(data[5]);
-        if (length != data.size()) {
-            return false;
-        }
-
-        frame.m_userType = static_cast<unsigned char>(data[5]);
-
-        frame.m_userId = static_cast<unsigned char>(data[9]) << 24 | static_cast<unsigned char>(data[8]) << 16 |
-                         static_cast<unsigned char>(data[7]) << 8 | static_cast<unsigned char>(data[6]);
-
-        frame.m_code = static_cast<unsigned char>(data[11]) << 8 | static_cast<unsigned char>(data[10]);
-
-        frame.m_date = data.mid(12, data.size() - 22);
-    } catch (const std::exception &e) {
-        qDebug() << "HIDDataFrame---->\n" << __func__
-                 << e.what();
+    //先检查head和tail
+    int indexHead = cmdData.indexOf((int8_t)m_frameHead);
+    if (indexHead == -1) {
         return false;
     }
 
+    int indexTail = cmdData.indexOf(m_frameTail);
+    if (indexTail == -1) {
+        return false;
+    }
 
-    return true;
+    while (indexTail != -1) {
+        auto* frameData = new unsigned char[indexTail - indexHead + 1];
+        memcpy(frameData, data + indexHead, indexTail - indexHead + 1);
+        uint16_t frameLength = frameData[3] | frameData[4] << 8;
+        if (frameLength != indexTail - indexHead + 1) {
+            indexTail = cmdData.indexOf(m_frameTail, indexTail + 1);
+            continue;
+        }
+        qDebug() << "HIDDataFrame----->" << __func__ << QByteArray(reinterpret_cast<const char*>(frameData), frameLength).toHex();
+        uint16_t crc = frameData[frameLength - 3] | frameData[frameLength - 2] << 8;
+        uint16_t crcCal = CRC16::calculate(frameData, frameLength - 3);
+        if (crc != crcCal) {
+            qDebug() << "HIDDataFrame----->" << __func__ << "crc error";
+            indexTail = cmdData.indexOf(m_frameTail, indexTail + 1);
+            continue;
+        }
+
+        frame.m_frameNumber = frameData[1] | frameData[2] << 8;
+        frame.m_length = frameLength;
+        frame.m_userType = frameData[5];
+        frame.m_userId = frameData[6] | frameData[7] << 8 | frameData[8] << 16 | frameData[9] << 24;
+        frame.m_code = frameData[10] | frameData[11] << 8;
+        frame.m_date = QByteArray((char*)frameData + 12, frameLength - 15);
+        qDebug() << "HIDDataFrame----->" << __func__ << frame;
+        return true;
+    }
+
+    return false;
 }
 
 QDebug operator<<(QDebug debug, const HIDDataFrame &frame) {
     debug.nospace() << "HIDDataFrame["
                     << "frameNumber:" << frame.m_frameNumber
-                    << ",userType:" << frame.m_userType
-                    << ",userId:" << frame.m_userId
-                    << ",code:" << frame.m_code
+                    << ",userType:" << QString::number(frame.m_userType, 16)
+                    << ",userId:" << QString::number(frame.m_userId, 16)
+                    << ",code:" << QString::number(frame.m_code, 16)
                     << ",date:" << frame.m_date.toHex()
                     << "]";
     return debug;

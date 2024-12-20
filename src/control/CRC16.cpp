@@ -4,6 +4,7 @@
 //
 //
 
+#include <iostream>
 #include "CRC16.h"
 
 unsigned short CRC16::calculate(const unsigned char *data, const unsigned short len) {

@@ -38,9 +38,9 @@ namespace HIDDef
         Setting_Device_Time = 0x0005,
         Setting_Device_Timezone = 0x0006,
         Setting_Start_Mode = 0x0007,
-        Setting_Device_Stop = 0x0008,
+        Setting_Stop_Mode = 0x0008,
 
-        Query_Device_Id = 0x0101,
+        Query_Device_Info = 0x0101,
         Query_Device_Model = 0x0102,
         Query_Device_Version = 0x0103,
         Query_Device_ValueNum = 0x0104,

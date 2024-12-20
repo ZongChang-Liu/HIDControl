@@ -13,8 +13,6 @@ HIDController::HIDController(QObject* parent) : QObject(parent)
     m_worker->moveToThread(m_thread);
     m_thread->start();
     connect(m_worker, &HIDWork::sigDeviceStatus, this, &HIDController::sigDeviceStatus);
-    connect(m_worker, &HIDWork::sigSendCommand, this, &HIDController::sigSendCommand);
-    connect(m_worker, &HIDWork::sigReceiveCommand, this, &HIDController::sigReceiveCommand);
 }
 
 HIDController::~HIDController(){

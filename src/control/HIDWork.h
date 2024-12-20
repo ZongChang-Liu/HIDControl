@@ -22,12 +22,10 @@ public:
     Q_SLOT void openDevice(const QString& path);
     Q_SLOT void closeDevice();
     Q_SLOT void sendCommand(int cmd, const QByteArray& data, bool isAsync, int timeout);
-    Q_SLOT void receiveCommand(const QByteArray& data);
+    Q_SLOT void receiveCommand(int timeout);
 
 
     Q_SIGNAL void sigDeviceStatus(int status);
-    Q_SIGNAL void sigSendCommand(const QByteArray& data);
-    Q_SIGNAL void sigReceiveCommand(const QByteArray& data);
 private:
     hid_device *m_hidDevice{nullptr};
     HIDDataFrame* m_frame{nullptr};

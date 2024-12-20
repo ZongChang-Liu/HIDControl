@@ -22,13 +22,17 @@
 #include "ui/HIDFilterPage.h"
 
 #ifdef Q_OS_WIN
+
 #include <windows.h>
 #include <initguid.h>
 #include <Hidclass.h>
 #include <Dbt.h>
+#include <QTimeZone>
+
 #endif
 
 MainWindows::MainWindows(QWidget *parent) : ElaWindow(parent) {
+
     m_hidController = new HIDController(this);
     initSystem();
     initWindow();
@@ -45,8 +49,29 @@ MainWindows::MainWindows(QWidget *parent) : ElaWindow(parent) {
     });
 
     connect(m_deviceComboBox, SIGNAL(currentIndexChanged(int)), this, SLOT(onDIDSelectChanged(int)));
-    connect(m_hidController, &HIDController::sigDeviceStatus, this, &MainWindows::onDeviceStatus);
-    m_logPage->appendLog(tr("初始化完成！"));
+    connect(m_hidController, SIGNAL(sigDeviceStatus(int)), this, SLOT(onDeviceStatus(int)));
+    connect(m_paramTypeComboBox, SIGNAL(currentIndexChanged(int)), this, SLOT(onSetTempType()));
+    connect(m_paramThresholdLowSpinBox, SIGNAL(valueChanged(double)), this, SLOT(onSetThreshold()));
+    connect(m_paramThresholdHighSpinBox, SIGNAL(valueChanged(double)), this, SLOT(onSetThreshold()));
+    connect(m_paramUpdateIntervalSpinBox, SIGNAL(valueChanged(int)), this, SLOT(onSetLogInterval()));
+    connect(m_deviceTimeCalendarPicker, SIGNAL(selectedDateChanged(QDate)), this, SLOT(onSetDeviceTime()));
+    connect(m_deviceTimeHourComboBox, SIGNAL(currentIndexChanged(int)), this, SLOT(onSetDeviceTime()));
+    connect(m_deviceTimeMinuteComboBox, SIGNAL(currentIndexChanged(int)), this, SLOT(onSetDeviceTime()));
+    connect(m_deviceTimeSecondComboBox, SIGNAL(currentIndexChanged(int)), this, SLOT(onSetDeviceTime()));
+    connect(m_timeZoneHourComboBox, SIGNAL(currentIndexChanged(int)), this, SLOT(onSetDeviceTime()));
+    connect(m_timeZoneMinuteComboBox, SIGNAL(currentIndexChanged(int)), this, SLOT(onSetDeviceTime()));
+    connect(m_modeRadioButtonMode, SIGNAL(clicked()), this, SLOT(onSetMode()));
+    connect(m_modeRadioTimeMode, SIGNAL(clicked()), this, SLOT(onSetMode()));
+    connect(m_modeCheckBox, SIGNAL(clicked()), this, SLOT(onSetStartDelay()));
+    connect(m_modeCalendarPicker, SIGNAL(selectedDateChanged(QDate)), this, SLOT(onSetMode()));
+    connect(m_modeHourComboBox, SIGNAL(currentIndexChanged(int)), this, SLOT(onSetMode()));
+    connect(m_modeMinuteComboBox, SIGNAL(currentIndexChanged(int)), this, SLOT(onSetMode()));
+    connect(m_modeSecondComboBox, SIGNAL(currentIndexChanged(int)), this, SLOT(onSetMode()));
+
+
+    if(m_logPage){
+        m_logPage->appendLog(tr("初始化完成！"));
+    }
     updateDeviceList();
 }
 
@@ -98,13 +123,16 @@ void MainWindows::initEdgeLayout() {
     customLayout->addWidget(menuBar);
     customLayout->addStretch();
     this->setCustomWidget(ElaAppBarType::LeftArea, customWidget);
+
+
+    menuBar->addAction(tr("读取设备信息"));
     connect(menuBar, &ElaMenuBar::triggered, this, &MainWindows::onActionTriggered);
 
     // m_hidFilterPage = new HIDFilterPage(this);
     // createDockWidget(tr("HID过滤"), m_hidFilterPage, Qt::RightDockWidgetArea);
 
-    m_logPage = new LogPage(this);
-    createDockWidget(tr("日志"), m_logPage, Qt::RightDockWidgetArea);
+//    m_logPage = new LogPage(this);
+//    createDockWidget(tr("日志"), m_logPage, Qt::RightDockWidgetArea);
 
     auto *statusBar = new ElaStatusBar(this);
     QString time = tr("当前时间：") + QDateTime::currentDateTime().toString("yyyy-MM-dd hh:mm:ss");
@@ -153,7 +181,9 @@ void MainWindows::createDockWidget(const QString &title, QWidget *widget, Qt::Do
 }
 
 void MainWindows::onActionTriggered(QAction *action) {
-
+    if(action->text() == tr("读取设备信息")){
+        m_hidController->sendCommand(HIDDef::Query_Device_Info, nullptr, false, 50);
+    }
 }
 
 void MainWindows::showEvent(QShowEvent *event) {
@@ -173,7 +203,7 @@ void MainWindows::initDeviceInfoUi() {
     m_deviceInfoContent->setContentsMargins(0, 0, 0, 0);
     auto *contentLayout = new QVBoxLayout(m_deviceInfoContent);
 
-    auto* devicePathWidget = new QWidget(m_deviceInfoWidget);
+    auto *devicePathWidget = new QWidget(m_deviceInfoWidget);
     auto *devicePathLayout = new QHBoxLayout(devicePathWidget);
     auto *devicePathText = new ElaText(tr("设备路径:"), m_deviceInfoWidget);
     devicePathText->setTextPixelSize(15);
@@ -196,14 +226,12 @@ void MainWindows::initDeviceInfoUi() {
 
     devicePathLayout->addWidget(devicePathText);
     devicePathLayout->addWidget(m_deviceComboBox);
-    devicePathLayout->addSpacing(10);
     devicePathLayout->addWidget(deviceVidText);
     devicePathLayout->addWidget(m_hidVidLineEdit);
-    devicePathLayout->addSpacing(5);
     devicePathLayout->addWidget(devicePidText);
     devicePathLayout->addWidget(m_hidPidLineEdit);
 
-    auto* deviceProductWidget = new QWidget(m_deviceInfoWidget);
+    auto *deviceProductWidget = new QWidget(m_deviceInfoWidget);
     auto *deviceProductLayout = new QHBoxLayout(deviceProductWidget);
     auto *deviceManufacturerText = new ElaText(tr("制造商:"), m_deviceInfoWidget);
     deviceManufacturerText->setTextPixelSize(15);
@@ -218,10 +246,8 @@ void MainWindows::initDeviceInfoUi() {
 
     deviceProductLayout->addWidget(deviceManufacturerText);
     deviceProductLayout->addWidget(m_deviceManufacturerEditLine);
-    deviceProductLayout->addSpacing(15);
     deviceProductLayout->addWidget(deviceProductText);
     deviceProductLayout->addWidget(m_deviceProductEditLine);
-    deviceProductLayout->addSpacing(15);
 
     auto *deviceIdWidget = new QWidget(m_deviceInfoWidget);
     auto *deviceIdLayout = new QHBoxLayout(deviceIdWidget);
@@ -247,10 +273,8 @@ void MainWindows::initDeviceInfoUi() {
 
     deviceIdLayout->addWidget(deviceIdText);
     deviceIdLayout->addWidget(m_deviceIdEditLine);
-    deviceIdLayout->addSpacing(10);
     deviceIdLayout->addWidget(deviceTypeText);
     deviceIdLayout->addWidget(m_deviceTypeEditLine);
-    deviceIdLayout->addSpacing(10);
     deviceIdLayout->addWidget(deviceVersionText);
     deviceIdLayout->addWidget(m_deviceVersionEditLine);
 
@@ -261,15 +285,14 @@ void MainWindows::initDeviceInfoUi() {
     auto *deviceInfoLayout = new QVBoxLayout(m_deviceInfoWidget);
     deviceInfoLayout->setContentsMargins(0, 0, 0, 0);
     deviceInfoLayout->addWidget(deviceInfoText);
-    deviceInfoLayout->addSpacing(10);
     deviceInfoLayout->addWidget(m_deviceInfoContent);
 
-    m_deviceInfoContent->setFixedHeight(200);
+    m_deviceInfoContent->setFixedHeight(180);
 
-//    deviceInfoText->setVisible(false);
+    deviceInfoText->setVisible(false);
 //    devicePathWidget->setVisible(false);
 //    deviceProductWidget->setVisible(false);
-//    m_deviceInfoContent->setFixedHeight(65);
+//    m_deviceInfoContent->setFixedHeight(70);
 }
 
 void MainWindows::initParamInfoUi() {
@@ -304,19 +327,25 @@ void MainWindows::initParamInfoUi() {
     auto *paramThresholdLayout = new QHBoxLayout(paramThresholdWidget);
     auto *paramThresholdLowText = new ElaText("低阈值：", m_paramInfoWidget);
     paramThresholdLowText->setTextPixelSize(15);
-    m_paramThresholdLowEditLine = new ElaLineEdit(m_paramInfoWidget);
-    m_paramThresholdLowEditLine->setFixedHeight(30);
+    m_paramThresholdLowSpinBox = new ElaDoubleSpinBox(m_paramInfoWidget);
+    m_paramThresholdLowSpinBox->setRange(-9999, 9999);
+    m_paramThresholdLowSpinBox->setDecimals(1);
+    m_paramThresholdLowSpinBox->setValue(16.0);
+    m_paramThresholdLowSpinBox->setFixedHeight(30);
 
     auto *paramThresholdHighText = new ElaText("高阈值：", m_paramInfoWidget);
     paramThresholdHighText->setTextPixelSize(15);
-    m_paramThresholdHighEditLine = new ElaLineEdit(m_paramInfoWidget);
-    m_paramThresholdHighEditLine->setFixedHeight(30);
+    m_paramThresholdHighSpinBox = new ElaDoubleSpinBox(m_paramInfoWidget);
+    m_paramThresholdHighSpinBox->setRange(-9999, 9999);
+    m_paramThresholdHighSpinBox->setDecimals(1);
+    m_paramThresholdHighSpinBox->setValue(32.0);
+    m_paramThresholdHighSpinBox->setFixedHeight(30);
 
     paramThresholdLayout->addWidget(paramThresholdLowText);
-    paramThresholdLayout->addWidget(m_paramThresholdLowEditLine);
+    paramThresholdLayout->addWidget(m_paramThresholdLowSpinBox);
     paramThresholdLayout->addSpacing(30);
     paramThresholdLayout->addWidget(paramThresholdHighText);
-    paramThresholdLayout->addWidget(m_paramThresholdHighEditLine);
+    paramThresholdLayout->addWidget(m_paramThresholdHighSpinBox);
     paramThresholdLayout->addStretch();
 
 
@@ -329,7 +358,7 @@ void MainWindows::initParamInfoUi() {
     m_paramUpdateIntervalSpinBox->setFixedHeight(30);
     m_paramUpdateIntervalSpinBox->setMinimumWidth(200);
     m_paramUpdateIntervalSpinBox->setSuffix(tr("分钟"));
-    m_paramUpdateIntervalSpinBox->setRange(1, 99999);
+    m_paramUpdateIntervalSpinBox->setRange(1, 28800);
     auto *paramUpdateDayText = new ElaText("", m_paramInfoWidget);
     paramUpdateDayText->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
     paramUpdateDayText->setTextPixelSize(15);
@@ -354,7 +383,6 @@ void MainWindows::initParamInfoUi() {
 
     paramUpdateLayout->addWidget(paramUpdateText);
     paramUpdateLayout->addWidget(m_paramUpdateIntervalSpinBox);
-    paramUpdateLayout->addSpacing(10);
     paramUpdateLayout->addWidget(paramUpdateDayText);
 
     contentLayout->addWidget(paramTypeWidget);
@@ -364,10 +392,9 @@ void MainWindows::initParamInfoUi() {
     auto *paramInfoLayout = new QVBoxLayout(m_paramInfoWidget);
     paramInfoLayout->setContentsMargins(0, 0, 0, 0);
     paramInfoLayout->addWidget(paramInfoText);
-    paramInfoLayout->addSpacing(10);
     paramInfoLayout->addWidget(paramInfoContent);
 
-    paramInfoContent->setFixedHeight(60 * 3);
+    paramInfoContent->setFixedHeight(180);
 
     paramInfoText->setVisible(false);
 }
@@ -384,11 +411,48 @@ void MainWindows::initTimeInfoUi() {
     auto *deviceTimeLayout = new QHBoxLayout(deviceTimeWidget);
     auto *deviceTimeText = new ElaText("设备时间：", m_timeInfoWidget);
     deviceTimeText->setTextPixelSize(15);
-    m_deviceTimeEditLine = new ElaLineEdit(m_timeInfoWidget);
-    m_deviceTimeEditLine->setReadOnly(true);
-    m_deviceTimeEditLine->setFixedHeight(30);
+
+    m_deviceTimeCalendarPicker = new ElaCalendarPicker(m_modeInfoWidget);
+    m_deviceTimeCalendarPicker->setFixedHeight(30);
+    m_deviceTimeHourComboBox = new ElaComboBox(m_modeInfoWidget);
+    m_deviceTimeHourComboBox->addItems({"00", "01", "02", "03", "04", "05", "06", "07", "08", "09",
+                                        "10", "11", "12", "13", "14", "15", "16", "17", "18", "19",
+                                        "20", "21", "22", "23"});
+    m_deviceTimeHourComboBox->setFixedHeight(30);
+    m_deviceTimeMinuteComboBox = new ElaComboBox(m_modeInfoWidget);
+    for (int i = 0; i < 60; ++i) {
+        if (i < 10) {
+            m_deviceTimeMinuteComboBox->addItem("0" + QString::number(i));
+        } else {
+            m_deviceTimeMinuteComboBox->addItem(QString::number(i));
+        }
+    }
+    m_deviceTimeMinuteComboBox->setFixedHeight(30);
+    m_deviceTimeSecondComboBox = new ElaComboBox(m_modeInfoWidget);
+    for (int i = 0; i < 60; ++i) {
+        if (i < 10) {
+            m_deviceTimeSecondComboBox->addItem("0" + QString::number(i));
+        } else {
+            m_deviceTimeSecondComboBox->addItem(QString::number(i));
+        }
+    }
+    m_deviceTimeSecondComboBox->setFixedHeight(30);
+    auto *modeTimeHourText = new ElaText("时", m_modeInfoWidget);
+    modeTimeHourText->setTextPixelSize(15);
+    auto *modeTimeMinuteText = new ElaText("分", m_modeInfoWidget);
+    modeTimeMinuteText->setTextPixelSize(15);
+    auto *modeTimeSecondText = new ElaText("秒", m_modeInfoWidget);
+    modeTimeSecondText->setTextPixelSize(15);
+
     deviceTimeLayout->addWidget(deviceTimeText);
-    deviceTimeLayout->addWidget(m_deviceTimeEditLine);
+    deviceTimeLayout->addWidget(m_deviceTimeCalendarPicker);
+    deviceTimeLayout->addWidget(m_deviceTimeHourComboBox);
+    deviceTimeLayout->addWidget(modeTimeHourText);
+    deviceTimeLayout->addWidget(m_deviceTimeMinuteComboBox);
+    deviceTimeLayout->addWidget(modeTimeMinuteText);
+    deviceTimeLayout->addWidget(m_deviceTimeSecondComboBox);
+    deviceTimeLayout->addWidget(modeTimeSecondText);
+    deviceTimeLayout->addStretch();
 
     auto *systemTimeWidget = new QWidget(m_paramInfoWidget);
     auto *systemTimeLayout = new QHBoxLayout(systemTimeWidget);
@@ -408,33 +472,30 @@ void MainWindows::initTimeInfoUi() {
     m_timeZoneHourComboBox->addItems({"-12", "-11", "-10", "-9", "-8", "-7", "-6", "-5", "-4", "-3", "-2", "-1", "UTC",
                                       "+1", "+2", "+3", "+4", "+5", "+6", "+7", "+8", "+9", "+10", "+11", "+12"});
     m_timeZoneHourComboBox->setCurrentText("UTC");
+    m_timeZoneHourComboBox->setFixedHeight(30);
     auto *timeZoneColon = new ElaText(" : ", m_timeInfoWidget);
     timeZoneColon->setTextPixelSize(15);
     m_timeZoneMinuteComboBox = new ElaComboBox(m_timeInfoWidget);
     for (int i = 0; i < 60; ++i) {
         m_timeZoneMinuteComboBox->addItem(QString::number(i));
     }
-    m_timeZoneHourComboBox->setFixedHeight(30);
+    m_timeZoneMinuteComboBox->setFixedHeight(30);
     timeZoneLayout->addWidget(timeZoneText);
     timeZoneLayout->addWidget(m_timeZoneHourComboBox);
     timeZoneLayout->addWidget(timeZoneColon);
     timeZoneLayout->addWidget(m_timeZoneMinuteComboBox);
     timeZoneLayout->addStretch();
 
-
     contentLayout->addWidget(deviceTimeWidget);
-    contentLayout->addSpacing(10);
-    contentLayout->addWidget(systemTimeWidget);
-    contentLayout->addSpacing(10);
     contentLayout->addWidget(timeZoneWidget);
+    contentLayout->addWidget(systemTimeWidget);
 
     auto *timeInfoLayout = new QVBoxLayout(m_timeInfoWidget);
     timeInfoLayout->setContentsMargins(0, 0, 0, 0);
     timeInfoLayout->addWidget(timeInfoText);
-    timeInfoLayout->addSpacing(10);
     timeInfoLayout->addWidget(m_timeInfoContent);
 
-    m_timeInfoContent->setFixedHeight(65 * 3);
+    m_timeInfoContent->setFixedHeight(180);
 
     timeInfoText->setVisible(false);
 }
@@ -465,21 +526,29 @@ void MainWindows::initModeInfoUi() {
     modeTimeDayText->setTextPixelSize(15);
     m_modeCalendarPicker = new ElaCalendarPicker(m_modeInfoWidget);
     m_modeCalendarPicker->setFixedHeight(30);
-    auto *modeTimeHourComboBox = new ElaComboBox(m_modeInfoWidget);
-    modeTimeHourComboBox->addItems({"00", "01", "02", "03", "04", "05", "06", "07", "08", "09",
+    m_modeHourComboBox = new ElaComboBox(m_modeInfoWidget);
+    m_modeHourComboBox->addItems({"00", "01", "02", "03", "04", "05", "06", "07", "08", "09",
                                     "10", "11", "12", "13", "14", "15", "16", "17", "18", "19",
                                     "20", "21", "22", "23"});
-    modeTimeHourComboBox->setFixedHeight(30);
-    auto *modeTimeMinuteComboBox = new ElaComboBox(m_modeInfoWidget);
+    m_modeHourComboBox->setFixedHeight(30);
+    m_modeMinuteComboBox= new ElaComboBox(m_modeInfoWidget);
     for (int i = 0; i < 60; ++i) {
-        modeTimeMinuteComboBox->addItem(QString::number(i));
+        if (i < 10) {
+            m_modeMinuteComboBox->addItem("0" + QString::number(i));
+        } else {
+            m_modeMinuteComboBox->addItem(QString::number(i));
+        }
     }
-    modeTimeMinuteComboBox->setFixedHeight(30);
-    auto *modeTimeSecondComboBox = new ElaComboBox(m_modeInfoWidget);
+    m_modeMinuteComboBox->setFixedHeight(30);
+    m_modeSecondComboBox = new ElaComboBox(m_modeInfoWidget);
     for (int i = 0; i < 60; ++i) {
-        modeTimeSecondComboBox->addItem(QString::number(i));
+        if (i < 10) {
+            m_modeSecondComboBox->addItem("0" + QString::number(i));
+        } else {
+            m_modeSecondComboBox->addItem(QString::number(i));
+        }
     }
-    modeTimeSecondComboBox->setFixedHeight(30);
+    m_modeSecondComboBox->setFixedHeight(30);
     auto *modeTimeHourText = new ElaText("时", m_modeInfoWidget);
     modeTimeHourText->setTextPixelSize(15);
     auto *modeTimeMinuteText = new ElaText("分", m_modeInfoWidget);
@@ -488,12 +557,11 @@ void MainWindows::initModeInfoUi() {
     modeTimeSecondText->setTextPixelSize(15);
     modeTimeLayout->addWidget(modeTimeDayText);
     modeTimeLayout->addWidget(m_modeCalendarPicker);
-    modeTimeLayout->addSpacing(14);
-    modeTimeLayout->addWidget(modeTimeHourComboBox);
+    modeTimeLayout->addWidget(m_modeHourComboBox);
     modeTimeLayout->addWidget(modeTimeHourText);
-    modeTimeLayout->addWidget(modeTimeMinuteComboBox);
+    modeTimeLayout->addWidget(m_modeMinuteComboBox);
     modeTimeLayout->addWidget(modeTimeMinuteText);
-    modeTimeLayout->addWidget(modeTimeSecondComboBox);
+    modeTimeLayout->addWidget(m_modeSecondComboBox);
     modeTimeLayout->addWidget(modeTimeSecondText);
     modeTimeLayout->addStretch();
     modeTimeWidget->setVisible(false);
@@ -508,24 +576,21 @@ void MainWindows::initModeInfoUi() {
     stopModeLayout->addStretch();
 
     contentLayout->addWidget(startModeWidget);
-    contentLayout->addSpacing(10);
     contentLayout->addWidget(modeTimeWidget);
-    contentLayout->addSpacing(10);
     contentLayout->addWidget(stopModeWidget);
 
     auto *modeInfoLayout = new QVBoxLayout(m_modeInfoWidget);
     modeInfoLayout->setContentsMargins(0, 0, 0, 0);
     modeInfoLayout->addWidget(modeInfoText);
-    modeInfoLayout->addSpacing(10);
     modeInfoLayout->addWidget(modeInfoContent);
 
-    modeInfoContent->setFixedHeight(65 * 2);
+    modeInfoContent->setFixedHeight(130);
     connect(m_modeRadioTimeMode, &ElaRadioButton::toggled, this, [=](bool checked) {
         modeTimeWidget->setVisible(checked);
         if (checked) {
-            modeInfoContent->setFixedHeight(65 * 3);
+            modeInfoContent->setFixedHeight(190);
         } else {
-            modeInfoContent->setFixedHeight(65 * 2);
+            modeInfoContent->setFixedHeight(130);
         }
         m_homePage->update();
     });
@@ -533,8 +598,7 @@ void MainWindows::initModeInfoUi() {
     modeInfoText->setVisible(false);
 }
 
-void MainWindows::onDIDSelectChanged(int index) const
-{
+void MainWindows::onDIDSelectChanged(int index) const {
     const QString path = m_deviceComboBox->currentText();
     if (path.isEmpty()) {
         return;
@@ -543,19 +607,17 @@ void MainWindows::onDIDSelectChanged(int index) const
     m_hidController->openDevice(path);
 }
 
-void MainWindows::updateDeviceInfo() const
-{
+void MainWindows::updateDeviceInfo() const {
     const hid_device_info *pInfo = m_hidController->getDeviceInfo();
-    if (pInfo != nullptr)
-    {
+    if (pInfo != nullptr) {
         m_deviceComboBox->setCurrentText(pInfo->path);
         m_deviceManufacturerEditLine->setText(QString::fromWCharArray(pInfo->manufacturer_string));
         m_deviceProductEditLine->setText(QString::fromWCharArray(pInfo->product_string));
-        m_deviceIdEditLine->setText("0x" + QString::number(pInfo->product_id,16).toUpper());
-        m_deviceTypeEditLine->setText("0x" + QString::number(pInfo->usage,16).toUpper());
-        m_deviceVersionEditLine->setText("0x" + QString::number(pInfo->release_number,16).toUpper());
-        m_hidVidLineEdit->setText("0x" + QString::number(pInfo->vendor_id,16).toUpper());
-        m_hidPidLineEdit->setText("0x" + QString::number(pInfo->product_id,16).toUpper());
+        m_deviceIdEditLine->setText("0x" + QString::number(pInfo->product_id, 16).toUpper());
+        m_deviceTypeEditLine->setText("0x" + QString::number(pInfo->usage, 16).toUpper());
+        m_deviceVersionEditLine->setText("0x" + QString::number(pInfo->release_number, 16).toUpper());
+        m_hidVidLineEdit->setText("0x" + QString::number(pInfo->vendor_id, 16).toUpper());
+        m_hidPidLineEdit->setText("0x" + QString::number(pInfo->product_id, 16).toUpper());
     }
 }
 
@@ -564,9 +626,9 @@ void MainWindows::updateDeviceList() {
     QList<HiDDeviceInfo> hidDeviceInfoList;
     for (const hid_device_info *info = hid_info; info != nullptr; info = info->next) {
         QString product = QString::fromWCharArray(info->manufacturer_string);
-//        if (product.isEmpty() || !product.contains(PRODUCT)) {
-//            continue;
-//        }
+        if (product.isEmpty() || !product.contains(PRODUCT)) {
+            continue;
+        }
 
         HiDDeviceInfo deviceInfo;
         deviceInfo.vid = info->vendor_id;
@@ -578,34 +640,32 @@ void MainWindows::updateDeviceList() {
     }
     hid_free_enumeration(hid_info);
 
-    for (const auto &info : hidDeviceInfoList) {
-        if(!m_hidDeviceInfoList.contains(info)) {
+    for (const auto &info: hidDeviceInfoList) {
+        if (!m_hidDeviceInfoList.contains(info)) {
             m_deviceComboBox->addItem(info.path);
-            if(m_logPage){
+            if (m_logPage) {
                 m_logPage->appendLog(tr("设备已连接：") + info.manufacturer + " " + info.product + " VID:0x" +
-                                         QString::number(info.vid, 16).toUpper() + " PID:0x" +
-                                         QString::number(info.pid, 16).toUpper());
+                                     QString::number(info.vid, 16).toUpper() + " PID:0x" +
+                                     QString::number(info.pid, 16).toUpper());
             }
-            if (m_hidFilterPage)
-            {
-                m_hidFilterPage->addHIDItem(info.manufacturer, info.product,QString::number(info.vid, 16).toUpper(),
-                                         QString::number(info.pid, 16).toUpper());
+            if (m_hidFilterPage) {
+                m_hidFilterPage->addHIDItem(info.manufacturer, info.product, QString::number(info.vid, 16).toUpper(),
+                                            QString::number(info.pid, 16).toUpper());
             }
         }
     }
 
-    for (const auto &info : m_hidDeviceInfoList) {
-        if(!hidDeviceInfoList.contains(info)) {
+    for (const auto &info: m_hidDeviceInfoList) {
+        if (!hidDeviceInfoList.contains(info)) {
             m_deviceComboBox->removeItem(m_deviceComboBox->findText(info.path));
-            if(m_logPage){
+            if (m_logPage) {
                 m_logPage->appendLog(tr("设备已断开：") + info.manufacturer + " " + info.product + " VID:0x" +
-                                         QString::number(info.vid, 16).toUpper() + " PID:0x" +
-                                         QString::number(info.pid, 16).toUpper());
+                                     QString::number(info.vid, 16).toUpper() + " PID:0x" +
+                                     QString::number(info.pid, 16).toUpper());
             }
-            if (m_hidFilterPage)
-            {
-                m_hidFilterPage->removeHIDItem(info.manufacturer, info.product,QString::number(info.vid, 16).toUpper(),
-                                                QString::number(info.pid, 16).toUpper());
+            if (m_hidFilterPage) {
+                m_hidFilterPage->removeHIDItem(info.manufacturer, info.product, QString::number(info.vid, 16).toUpper(),
+                                               QString::number(info.pid, 16).toUpper());
             }
         }
     }
@@ -613,18 +673,17 @@ void MainWindows::updateDeviceList() {
     m_hidDeviceInfoList = hidDeviceInfoList;
 }
 
-void MainWindows::onDeviceStatus(const int status)
-{
-    switch (status)
-    {
-    case HIDDef::Device_Opened:
-        updateDeviceInfo();
-        break;
-    case HIDDef::Device_Error:
-        break;
-    case HIDDef::Device_Closed:
-        break;
-    default:
+void MainWindows::onDeviceStatus(const int status) {
+    switch (status) {
+        case HIDDef::Device_Opened:
+            updateDeviceInfo();
+            m_hidController->sendCommand(HIDDef::Update_Device_Value, QByteArray(), true, 50);
+            break;
+        case HIDDef::Device_Error:
+            break;
+        case HIDDef::Device_Closed:
+            break;
+        default:
             break;
     }
 }
@@ -635,7 +694,8 @@ void MainWindows::onDeviceStatus(const int status)
 
 bool MainWindows::nativeEvent(const QByteArray &eventType, void *message, qintptr *result) {
 #else
-    bool MainWindows::nativeEvent(const QByteArray &eventType, void *message, long *result) {
+
+bool MainWindows::nativeEvent(const QByteArray &eventType, void *message, long *result) {
 #endif
 
     Q_UNUSED(eventType)
@@ -647,8 +707,8 @@ bool MainWindows::nativeEvent(const QByteArray &eventType, void *message, qintpt
                 auto lpdb = (PDEV_BROADCAST_HDR) msg->lParam;
                 auto lpdbv = (PDEV_BROADCAST_DEVICEINTERFACE) lpdb;
                 if (lpdbv->dbcc_classguid == GUID_DEVINTERFACE_HID) {
-                     updateDeviceList();
-                     update();
+                    updateDeviceList();
+                    update();
                 }
             }
             break;
@@ -659,5 +719,166 @@ bool MainWindows::nativeEvent(const QByteArray &eventType, void *message, qintpt
 }
 
 #endif
+
+
+void MainWindows::onSetTempType() const {
+    qDebug() << "MainWindows--->" << __func__ << m_paramTypeComboBox->currentIndex();
+    uint8_t tempType = m_paramTypeComboBox->currentIndex();
+    QByteArray data;
+    data.append(static_cast<char>(tempType));
+    m_hidController->sendCommand(HIDDef::Setting_Temp_Type, data, false, 50);
+
+//    m_hidController->sendCommand(HIDDef::Query_Device_Info, nullptr, false, 50);
+}
+
+void MainWindows::onSetThreshold() const {
+    qDebug() << "MainWindows--->" << __func__ << m_paramComboBox->currentIndex() << m_paramThresholdLowSpinBox->value()
+             << m_paramThresholdHighSpinBox->value();
+    QByteArray data;
+    uint8_t valueId = m_paramComboBox->currentIndex();
+    auto low = (float) m_paramThresholdLowSpinBox->value();
+    auto high = (float) m_paramThresholdHighSpinBox->value();
+    char arr[4];
+    memcpy(arr, &high, sizeof(high));
+    data.append(arr[0]);
+    data.append(arr[1]);
+    data.append(arr[2]);
+    data.append(arr[3]);
+    memcpy(arr, &low, sizeof(low));
+    data.append(arr[0]);
+    data.append(arr[1]);
+    data.append(arr[2]);
+    data.append(arr[3]);
+    data.append(static_cast<char>(valueId));
+    m_hidController->sendCommand(HIDDef::Setting_Value_Threshold, data, false, 50);
+
+}
+
+void MainWindows::onSetLogInterval() const {
+    qDebug() << "MainWindows--->" << __func__ << m_paramUpdateIntervalSpinBox->value();
+    uint16_t interval = m_paramUpdateIntervalSpinBox->value();
+    uint8_t hh = interval / 60;
+    uint8_t mm = interval % 60;
+    uint8_t tt = 28800 * mm / 60 * 24;
+
+    hh = hh % 10 + (hh % 100 / 10) * 16 + (hh / 100) * 16 * 16;
+    mm = mm % 10 + (mm % 100 / 10) * 16 + (mm / 100) * 16 * 16;
+    tt = tt % 10 + (tt % 100 / 10) * 16 + (tt / 100) * 16 * 16;
+
+    QByteArray data;
+    data.append(static_cast<char>(hh));
+    data.append(static_cast<char>(mm));
+    data.append(static_cast<char>(tt));
+    m_hidController->sendCommand(HIDDef::Setting_Log_Interval, data, false, 50);
+}
+
+void MainWindows::onSetStartDelay() const {
+
+}
+
+void MainWindows::onSetDeviceTime() const {
+     qDebug() << "MainWindows--->" << __func__ << m_deviceTimeCalendarPicker->getSelectedDate()
+              << m_deviceTimeHourComboBox->currentIndex() << m_deviceTimeMinuteComboBox->currentIndex()
+              << m_deviceTimeSecondComboBox->currentIndex() << m_timeZoneHourComboBox->currentIndex()
+              << m_timeZoneMinuteComboBox->currentIndex();
+    //获取时间 默认为UTC时间
+    QDate date = m_deviceTimeCalendarPicker->getSelectedDate();
+
+    uint8_t dateHH = m_deviceTimeHourComboBox->currentIndex();
+    uint8_t dateMM = m_deviceTimeMinuteComboBox->currentIndex();
+    uint8_t dateSS = m_deviceTimeSecondComboBox->currentIndex();
+
+    QDateTime dateTime = QDateTime(date, QTime(dateHH, dateMM, dateSS), Qt::UTC);
+    dateTime = dateTime.addSecs(8 * 3600);
+
+    uint8_t yy = dateTime.date().year() - 2000;
+    uint8_t MM = dateTime.date().month();
+    uint8_t dd = dateTime.date().day();
+    uint8_t hh = dateTime.time().hour();
+    uint8_t mm = dateTime.time().minute();
+    uint8_t ss = dateTime.time().second();
+    uint8_t week = dateTime.date().dayOfWeek();
+
+    int zoneHH = m_timeZoneHourComboBox->currentIndex() - 12;
+    int zoneMM = MM + m_timeZoneMinuteComboBox->currentIndex();
+
+    if (zoneMM > 60) {
+        zoneHH += 1;
+        zoneMM -= 60;
+    }
+
+    //正负
+    uint8_t sign = 0;
+    if (zoneHH < 0) {
+        sign = 1;
+        zoneHH = -zoneHH;
+    }
+
+
+    hh = hh % 10 + (hh % 100 / 10) * 16;
+    mm = mm % 10 + (mm % 100 / 10) * 16;
+    ss = ss % 10 + (ss % 100 / 10) * 16;
+    yy = yy % 10 + (yy % 100 / 10) * 16;
+    MM = MM % 10 + (MM % 100 / 10) * 16;
+    dd = dd % 10 + (dd % 100 / 10) * 16;
+    week = week % 10 + (week % 100 / 10) * 16;
+    zoneHH = zoneHH % 10 + (zoneHH % 100 / 10) * 16;
+    zoneMM = zoneMM % 10 + (zoneMM % 100 / 10) * 16;
+
+
+    QByteArray data;
+    data.append(static_cast<char>(yy));
+    data.append(static_cast<char>(MM));
+    data.append(static_cast<char>(dd));
+    data.append(static_cast<char>(hh));
+    data.append(static_cast<char>(mm));
+    data.append(static_cast<char>(ss));
+    data.append(static_cast<char>(week));
+    data.append(static_cast<char>(sign));
+    data.append(static_cast<char>(zoneHH));
+    data.append(static_cast<char>(zoneMM));
+    m_hidController->sendCommand(HIDDef::Setting_Device_Time, data, false, 50);
+}
+
+void MainWindows::onSetMode() const {
+    qDebug() << "MainWindows--->" << __func__ << m_modeRadioButtonMode->isChecked();
+    uint8_t mode = m_modeRadioButtonMode->isChecked() ? 0 : 1;
+    QByteArray data;
+    if (mode == 0){
+        QDate date = m_modeCalendarPicker->getSelectedDate();
+
+        uint8_t yy = date.year() - 2000;
+        uint8_t MM = date.month();
+        uint8_t dd = date.day();
+        uint8_t hh = m_modeHourComboBox->currentIndex();
+        uint8_t mm = m_modeMinuteComboBox->currentIndex();
+        uint8_t ss = m_modeSecondComboBox->currentIndex();
+
+        hh = hh % 10 + (hh % 100 / 10) * 16;
+        mm = mm % 10 + (mm % 100 / 10) * 16;
+        ss = ss % 10 + (ss % 100 / 10) * 16;
+        yy = yy % 10 + (yy % 100 / 10) * 16;
+        MM = MM % 10 + (MM % 100 / 10) * 16;
+        dd = dd % 10 + (dd % 100 / 10) * 16;
+
+        data.append(static_cast<char>(yy));
+        data.append(static_cast<char>(MM));
+        data.append(static_cast<char>(dd));
+        data.append(static_cast<char>(hh));
+        data.append(static_cast<char>(mm));
+        data.append(static_cast<char>(ss));
+    }
+
+    data.append(static_cast<char>(mode));
+    m_hidController->sendCommand(HIDDef::Setting_Start_Mode, data, false, 50);
+}
+
+void MainWindows::onStopMode() const {
+    qDebug() << "MainWindows--->" << __func__ << m_modeCheckBox->isChecked();
+    uint8_t mode = m_modeCheckBox->isChecked() ? 1 : 0;
+    QByteArray data;
+    data.append(static_cast<char>(mode));
+    m_hidController->sendCommand(HIDDef::Setting_Stop_Mode, data, false, 50);
+}
 
 
