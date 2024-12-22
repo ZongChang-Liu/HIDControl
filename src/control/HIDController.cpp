@@ -4,48 +4,54 @@
 //
 //
 
-#include "HIDController.h"
 #include <QThread>
+#include <QDebug>
+
+#include "HIDController.h"
+#include "HIDDataFrame.h"
+#include "HIDWork.h"
+
 HIDController::HIDController(QObject* parent) : QObject(parent)
 {
-    m_thread = new QThread(this);
-    m_worker = new HIDWork();
-    m_worker->moveToThread(m_thread);
-    m_thread->start();
+    qRegisterMetaType<HIDDataFrame>("HIDDataFrame");
+    qRegisterMetaType<QByteArray>("QByteArray&");
+    m_worker = new HIDWork(this);
+    m_worker->start();
+
+    connect(m_worker, &HIDWork::sigAddDevice, this, &HIDController::sigAddDevice);
+    connect(m_worker, &HIDWork::sigRemoveDevice, this, &HIDController::sigRemoveDevice);
     connect(m_worker, &HIDWork::sigDeviceStatus, this, &HIDController::sigDeviceStatus);
+    connect(m_worker, &HIDWork::sigReceiveCommand, this, &HIDController::sigReceiveCommand);
 }
 
 HIDController::~HIDController(){
-    closeDevice();
-    m_thread->quit();
-    m_thread->wait();
-};
+    m_worker->stop();
+    m_worker->quit();
+    m_worker->wait();
+}
+
+void HIDController::onUpdateDeviceList() const
+{
+    m_worker->updateDeviceList();
+}
 
 void HIDController::openDevice(const QString& path) const
 {
-    QMetaObject::invokeMethod(m_worker, "openDevice", Qt::QueuedConnection, Q_ARG(QString, path));
+    m_worker->openDevice(path);
 }
 
-void HIDController::closeDevice() const
+void HIDController::closeDevice(const QString& path) const
 {
-    m_worker->closeDevice();
+    m_worker->closeDevice(path);
 }
 
-int HIDController::sendCommand(const int cmd, const QByteArray& data, const bool isAsync, const int timeout) const
+HIDDevice* HIDController::getDevice(const QString& path) const
 {
-    if (isAsync)
-    {
-        int ret;
-        QMetaObject::invokeMethod(m_worker, "sendCommand", Qt::BlockingQueuedConnection,
-            Q_RETURN_ARG(int,ret), Q_ARG(int, cmd), Q_ARG(QByteArray, data), Q_ARG(bool,isAsync), Q_ARG(int, timeout));
-        return ret;
-    }
-
-    QMetaObject::invokeMethod(m_worker, "sendCommand", Qt::QueuedConnection, Q_ARG(int, cmd), Q_ARG(QByteArray, data), Q_ARG(bool,isAsync), Q_ARG(int, timeout));
-    return 0;
+    return m_worker->getDevice(path);
 }
 
-hid_device_info* HIDController::getDeviceInfo() const
+void HIDController::sendCommand(const QString& path, const int cmd, const QByteArray& sendData, const int time) const
 {
-    return m_worker->getDeviceInfo();
+    m_worker->addCommand(path, cmd, sendData, time);
 }
+

@@ -8,22 +8,40 @@
 #define HID_CONTROL_HID_FILTER_PAGE_H
 
 
+#include <QAbstractListModel>
 #include <QWidget>
-#include <QStandardItemModel>
 
-class ElaTreeView;
-class HIDModel;
-class HIDFilterPage : public QWidget {
+
+class HIDDeviceListModel final : public QAbstractListModel
+{
+    Q_OBJECT
+public:
+    explicit HIDDeviceListModel(QObject *parent = nullptr);
+    ~HIDDeviceListModel() override;
+
+    void addDevice(const QString& id);
+    void removeDevice(const QString& id);
+
+    int rowCount(const QModelIndex &parent) const override;
+    QVariant data(const QModelIndex &index, int role) const override;
+private:
+    QStringList m_idList;
+};
+
+class ElaListView;
+class HIDFilterPage final : public QWidget {
     Q_OBJECT
 public:
     explicit HIDFilterPage(QWidget *parent = nullptr);
     ~HIDFilterPage() override;
-    void addHIDItem(const QString& manufacturer, const QString& product, const QString& vid , const QString& pid);
-    void removeHIDItem(const QString& manufacturer, const QString& product, const QString &vid, const QString &pid);
-    Q_SIGNAL void sigHIDSelected(bool isSelected, const QString& vid, const QString& pid);
+    void addHIDItem(const QString& path, const QString& id);
+    void removeHIDItem(const QString& path);
+
+    Q_SIGNAL void sigHIDSelected(bool isSelected, QString id);
 private:
-    HIDModel* m_hidModel{nullptr};
-    ElaTreeView *m_hidTreeView{nullptr};
+    QMap<QString,QString> m_hidDeviceMap;
+    ElaListView *m_hidListView{nullptr};
+    HIDDeviceListModel *m_hidDeviceListModel{nullptr};
 };
 
 

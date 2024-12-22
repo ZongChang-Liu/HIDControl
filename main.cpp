@@ -23,7 +23,7 @@ int main(int argc, char *argv[]) {
     QApplication a(argc, argv);
     eApp->init();
     MainWindows w;
-    w.resize(700, 900);
+    w.resize(1000, 700);
     w.show();
     return QApplication::exec();
 }

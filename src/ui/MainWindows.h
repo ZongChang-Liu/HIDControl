@@ -8,6 +8,7 @@
 #define HID_CONTROL_MAIN_WINDOWS_H
 
 
+#include <QDateTime>
 #include "ElaWindow.h"
 #include "ElaMenu.h"
 #include "ElaLineEdit.h"
@@ -15,24 +16,25 @@
 #include "ElaScrollPage.h"
 #include "ElaSpinBox.h"
 #include "ElaDoubleSpinBox.h"
-#include "ElaRadioButton.h"
 #include "ElaCalendarPicker.h"
-#include "ElaCheckBox.h"
-#include "hidapi.h"
+#include "ElaScrollPageArea.h"
 
 #pragma execution_character_set(push, "utf-8")
 
+class QLabel;
 class LogPage;
 class HIDFilterPage;
 class HIDController;
-class MainWindows : public ElaWindow {
+class HIDDevice;
+class HIDDataFrame;
+class MainWindows final : public ElaWindow {
 Q_OBJECT
 public:
     explicit MainWindows(QWidget *parent = nullptr);
 
     ~MainWindows() override;
 
-    void initSystem();
+    void initSystem() const;
 
     void initWindow();
 
@@ -42,36 +44,43 @@ public:
 
     void initDeviceInfoUi();
 
-    void initParamInfoUi();
+    void initAlarmSettingUi();
 
-    void initTimeInfoUi();
-
-    void initModeInfoUi();
+    void initStartConfigUi();
 
     void createDockWidget(const QString &title, QWidget *widget, Qt::DockWidgetArea area);
 
+    void clearInfo();
+
     Q_SLOT void onSetTempType() const;
+
     Q_SLOT void onSetThreshold() const;
+
     Q_SLOT void onSetLogInterval() const;
+
     Q_SLOT void onSetStartDelay() const;
-    Q_SLOT void onSetDeviceTime() const;
+
+    Q_SLOT void onSetDeviceTime();
+
     Q_SLOT void onSetMode() const;
+
     Q_SLOT void onStopMode() const;
 
-    Q_SLOT void onDIDSelectChanged(int index) const;
+    Q_SLOT void onDeviceStatus(const QString& path,int status) const;
 
-    Q_SLOT void updateDeviceList();
+    Q_SLOT void onAddDevice(const QString& path);
 
-    Q_SLOT void updateDeviceInfo() const;
+    Q_SLOT void onRemoveDevice(const QString& path);
 
-    Q_SLOT void onDeviceStatus(int status);
+    Q_SLOT void onParseCommand(const QString& path,const HIDDataFrame& data);
+
+    Q_SLOT void onDeviceSelected(bool isSelected, const QString& path);
 
     Q_SLOT void showEvent(QShowEvent *event) override;
 
     Q_SLOT void hideEvent(QHideEvent *event) override;
 
-    Q_SLOT void onActionTriggered(QAction *action);
-
+    Q_SLOT void onActionTriggered(const QAction *action) const;
 #ifdef Q_OS_WIN
 #if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
     bool nativeEvent(const QByteArray &eventType, void *message, qintptr *result) override;
@@ -82,62 +91,39 @@ public:
 #endif
 #endif
 private:
-    const QString PRODUCT{"FRESVUE"};
 
     ElaScrollPage *m_homePage{nullptr};
     QWidget *m_contentWidget{nullptr};
 
-    struct HiDDeviceInfo {
-        int vid;
-        int pid;
-        QString manufacturer;
-        QString product;
-        QString path;
-        bool operator==(const HiDDeviceInfo &info) const {
-            return vid == info.vid && pid == info.pid && manufacturer == info.manufacturer && product == info.product &&
-                   path == info.path;
-        }
-    };
-    QList<HiDDeviceInfo> m_hidDeviceInfoList;
+    QString m_currentDevicePath;
     HIDController *m_hidController{nullptr};
-    QWidget *m_deviceInfoWidget{nullptr};
-    ElaComboBox *m_deviceComboBox{nullptr};
-    ElaLineEdit *m_hidVidLineEdit{nullptr};
-    ElaLineEdit *m_hidPidLineEdit{nullptr};
-    ElaLineEdit *m_deviceManufacturerEditLine{nullptr};
-    ElaLineEdit *m_deviceProductEditLine{nullptr};
-    ElaLineEdit *m_deviceIdEditLine{nullptr};
-    ElaLineEdit *m_deviceTypeEditLine{nullptr};
-    ElaLineEdit *m_deviceVersionEditLine{nullptr};
+    ElaScrollPageArea *m_deviceInfoContent{nullptr};
+    QLabel *m_modelId{nullptr};
+    QLabel *m_deviceId{nullptr};
+    QLabel *m_version{nullptr};
+    ElaComboBox *m_deviceZoneHourComboBox{nullptr};
+    ElaComboBox *m_deviceZoneMinuteComboBox{nullptr};
+    QDateTime m_deviceTime;
+    QLabel *m_deviceTimeLabel{nullptr};
+    ElaComboBox *m_temperatureScaleComboBox{nullptr};
+    ElaSpinBox *m_logIntervalSpinBox{nullptr};
+    ElaText *m_logIntervalText{nullptr};
 
-    QWidget *m_paramInfoWidget{nullptr};
-    ElaComboBox *m_paramComboBox{nullptr};
-    ElaText *m_paramText{nullptr};
-    ElaComboBox *m_paramTypeComboBox{nullptr};
-    ElaDoubleSpinBox *m_paramThresholdLowSpinBox{nullptr};
-    ElaDoubleSpinBox *m_paramThresholdHighSpinBox{nullptr};
-    ElaSpinBox *m_paramUpdateIntervalSpinBox{nullptr};
+    ElaScrollPageArea *m_AlarmSettingContent{nullptr};
+    ElaDoubleSpinBox *m_highTempSpinBox{nullptr};
+    ElaDoubleSpinBox *m_lowTempSpinBox{nullptr};
+    ElaSpinBox *m_highDelaySpinBox{nullptr};
+    ElaSpinBox *m_lowDelaySpinBox{nullptr};
 
-    QWidget *m_timeInfoWidget{nullptr};
-    ElaCalendarPicker* m_deviceTimeCalendarPicker{nullptr};
-    ElaComboBox *m_deviceTimeHourComboBox{nullptr};
-    ElaComboBox *m_deviceTimeMinuteComboBox{nullptr};
-    ElaComboBox *m_deviceTimeSecondComboBox{nullptr};
-    ElaLineEdit *m_systemTimeEditLine{nullptr};
-    ElaComboBox *m_timeZoneHourComboBox{nullptr};
-    ElaComboBox *m_timeZoneMinuteComboBox{nullptr};
+    ElaScrollPageArea *m_startConfigContent{nullptr};
+    ElaSpinBox *m_startIntervalSpinBox{nullptr};
+    ElaText *m_startIntervalText{nullptr};
+    ElaCalendarPicker* m_startTimeCalendarPicker{nullptr};
+    ElaComboBox *m_startTimeHourComboBox{nullptr};
+    ElaComboBox *m_startTimeMinuteComboBox{nullptr};
 
-    QWidget *m_modeInfoWidget{nullptr};
-    ElaRadioButton *m_modeRadioButtonMode{nullptr};
-    ElaRadioButton *m_modeRadioTimeMode{nullptr};
-    ElaCheckBox *m_modeCheckBox{nullptr};
-    ElaCalendarPicker *m_modeCalendarPicker{nullptr};
-    ElaComboBox *m_modeHourComboBox{nullptr};
-    ElaComboBox *m_modeMinuteComboBox{nullptr};
-    ElaComboBox *m_modeSecondComboBox{nullptr};
 
     HIDFilterPage *m_hidFilterPage{nullptr};
-    LogPage *m_logPage{nullptr};
     ElaMenu *m_docketMenu = nullptr;
 
     ElaText *m_statusText{nullptr};

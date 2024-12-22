@@ -6,31 +6,50 @@
 
 #ifndef HID_WORK_H
 #define HID_WORK_H
-#include <hidapi.h>
 #include <QObject>
+#include <QMap>
+#include <QThread>
 #pragma execution_character_set(push, "utf-8")
+class HIDDevice;
 class HIDDataFrame;
-class HIDWork final : public QObject
+class HIDWork final : public QThread
 {
     Q_OBJECT
 public:
+    class CMD
+    {
+    public:
+        QString path = nullptr;
+        int code = 0;
+        QByteArray data = nullptr;
+        int timeout = 50;
+    };
+
     explicit HIDWork(QObject *parent = nullptr);
     ~HIDWork() override;
 
-    hid_device_info* getDeviceInfo() const;
+    void updateDeviceList();
+    HIDDevice* getDevice(const QString& path) const;
 
-    Q_SLOT void openDevice(const QString& path);
-    Q_SLOT void closeDevice();
-    Q_SLOT void sendCommand(int cmd, const QByteArray& data, bool isAsync, int timeout);
-    Q_SLOT void receiveCommand(int timeout);
+    int openDevice(const QString& path = nullptr);
+    int closeDevice(const QString& path = nullptr);
 
+    void addCommand(const QString& path,int cmd, const QByteArray& send, int timeout = 50);
 
-    Q_SIGNAL void sigDeviceStatus(int status);
+    void stop();
+    void run() override;
+
+    Q_SIGNAL void sigDeviceStatus(const QString& path,int status);
+    Q_SIGNAL void sigAddDevice(const QString& path);
+    Q_SIGNAL void sigRemoveDevice(const QString& path);
+    Q_SIGNAL void sigReceiveCommand(const QString& path,const HIDDataFrame& data);
 private:
-    hid_device *m_hidDevice{nullptr};
-    HIDDataFrame* m_frame{nullptr};
-    QTimer* m_timer{nullptr};
-    int code = 0;
+    const QString PRODUCT{"FRESVUE"};
+    QMap<QString,HIDDevice*> m_hidDeviceMap;
+    QList<CMD> m_cmdList;
+    int user_type{0x01};
+    int user_id{0x12345678};
+    bool m_isStop{false};
 };
 
 #endif //HID_WORK_H

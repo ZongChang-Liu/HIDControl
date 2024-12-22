@@ -11,128 +11,152 @@
 #include "HIDWork.h"
 #include "HIDDef.h"
 #include "HIDDataFrame.h"
+#include "HIDDevice.h"
 
-HIDWork::HIDWork(QObject* parent) : QObject(parent)
+HIDWork::HIDWork(QObject* parent) : QThread(parent)
 {
-    m_frame = new HIDDataFrame();
 }
 
 HIDWork::~HIDWork() = default;
 
-hid_device_info* HIDWork::getDeviceInfo() const
+void HIDWork::updateDeviceList()
 {
-    if (m_hidDevice == nullptr)
-    {
+    hid_device_info *hid_info = hid_enumerate(0x0, 0x0);
+    QList<HIDDevice*> hidDeviceList;
+    for (hid_device_info *info = hid_info; info != nullptr; info = info->next) {
+        QString product = QString::fromWCharArray(info->manufacturer_string);
+        if (product.isEmpty() || !product.contains(PRODUCT)) {
+            continue;
+        }
+
+        auto* device = new HIDDevice(info);
+        device->setUseInfo(user_type, user_id);
+        hidDeviceList.append(device);
+    }
+    hid_free_enumeration(hid_info);
+
+    for (const auto &device: m_hidDeviceMap) {
+        if (!hidDeviceList.contains(device)) {
+            Q_EMIT sigRemoveDevice(device->path());
+            m_hidDeviceMap.remove(device->path());
+            device->close();
+            delete device;
+        }
+    }
+
+
+    for (const auto &device: hidDeviceList) {
+        const auto info = device->getDeviceInfo();
+        if (info == nullptr) {
+            continue;
+        }
+
+        if (!m_hidDeviceMap.contains(info->path)) {
+            m_hidDeviceMap.insert(info->path, device);
+            Q_EMIT sigAddDevice(info->path);
+        }
+    }
+
+
+}
+
+HIDDevice* HIDWork::getDevice(const QString& path) const
+{
+    HIDDevice* device = m_hidDeviceMap.value(path);
+    if (device == nullptr) {
         return nullptr;
     }
-
-    return hid_get_device_info(m_hidDevice);
+    return device;
 }
 
-void HIDWork::openDevice(const QString& path)
+int HIDWork::openDevice(const QString& path)
 {
-    closeDevice();
-    m_hidDevice = hid_open_path(path.toStdString().c_str());
-
-    if (m_hidDevice == nullptr) {
-        Q_EMIT sigDeviceStatus(HIDDef::Device_Error);
-        return;
-    }
-//    if (hid_set_nonblocking(m_hidDevice, 0) != 0)// 1启用非阻塞  0禁用非阻塞。
-//    {
-//        qDebug() << "hid_set_nonblocking failed";
-//    }
-    Q_EMIT sigDeviceStatus(HIDDef::Device_Opened);
-    m_timer = new QTimer(this);
-
-//    connect(m_timer, &QTimer::timeout, this, [=]() {
-//    });
-    m_timer->start(100);
-}
-
-void HIDWork::closeDevice()
-{
-    if (m_hidDevice != nullptr) {
-        hid_close(m_hidDevice);
-        Q_EMIT sigDeviceStatus(HIDDef::Device_Closed);
-        m_hidDevice = nullptr;
-    }
-
-    if (m_timer != nullptr) {
-        m_timer->stop();
-        delete m_timer;
-        m_timer = nullptr;
-    }
-}
-
-void HIDWork::sendCommand(int cmd, const QByteArray& data, bool isAsync, int timeout)
-{
-    if (m_hidDevice == nullptr)
-    {
-        return;
-    }
-    m_frame->m_userType = 0x01;
-    m_frame->m_userId = 0x12345678;
-    m_frame->m_code = cmd;
-    m_frame->m_date = data;
-
-    unsigned char *command = HIDDataFrame::createCommand(*m_frame);
-    for (int i = 0; i < m_frame->m_length / 64 + 1; ++i) {
-        if ( i != 0) {
-            QThread::msleep(10);
-        }
-
-        int len = m_frame->m_length - i * 64 > 64 ? 64 : m_frame->m_length - i * 64;
-        auto *sendData = new unsigned char[len + 1];
-        sendData[0] = 0x00;
-        memcpy(sendData + 1, command + i * 64, len);
-        qDebug() << "HIDWork---->" << __func__ << i << QByteArray(reinterpret_cast<const char*>(sendData), len + 1).toHex();
-        int ret = hid_write(m_hidDevice, sendData, len + 1);
-        if (ret < 0) {
-            qDebug() << "HIDWork---->" << __func__ << "failed" << QString::fromWCharArray(hid_error(m_hidDevice));
+    if (path == nullptr) {
+        // open all devices
+        for (const auto &device: m_hidDeviceMap) {
+            if (device->open()) {
+                Q_EMIT sigDeviceStatus(device->getDeviceInfo()->path,HIDDef::Device_Opened);
+            } else {
+                Q_EMIT sigDeviceStatus(device->getDeviceInfo()->path,HIDDef::Device_Error);
+            }
         }
     }
-
-    receiveCommand(timeout);
-}
-
-void HIDWork::receiveCommand(int timeout) {
-    if (m_hidDevice == nullptr)
-    {
-        return;
-    }
-
-    int len = 0;
-    unsigned char *recvData = nullptr;
-    auto *data = new unsigned char[64];
-    while(true){
-        len += 64;
-        memset(data, 0, 64);
-        int ret = hid_read_timeout(m_hidDevice, data, 64, timeout);
-        if (ret < 0) {
-            qDebug() << "HIDWork---->" << __func__ << "failed" << QString::fromWCharArray(hid_error(m_hidDevice));
-            return;
+    else {
+        auto *device = getDevice(path);
+        if (device == nullptr) {
+            return -1;
         }
-        if (ret == 0) {
-            qDebug() << "HIDWork---->" << __func__ << "timeout";
-            return;
-        }
-        if (recvData == nullptr) {
-            recvData = new unsigned char[len];
-            memcpy(recvData, data, 64);
+        if (device->open()) {
+            Q_EMIT sigDeviceStatus(path,HIDDef::Device_Opened);
         } else {
-            auto *temp = new unsigned char[len];
-            memcpy(temp, data, 64);
-            memcpy(temp + len - 64, recvData, len - 64);
-            delete[] recvData;
-            recvData = temp;
+            Q_EMIT sigDeviceStatus(path,HIDDef::Device_Error);
         }
-        qDebug() << "HIDWork---->" << __func__ << QByteArray(reinterpret_cast<const char*>(recvData), len).toHex();
-        if(HIDDataFrame::parseCommand(recvData,len, *m_frame)){
-            break;
-        }
-        QThread::msleep(10);
     }
-    delete[] recvData;
-    delete[] data;
+    return 0;
+}
+
+int HIDWork::closeDevice(const QString& path)
+{
+    if (path == nullptr) {
+        // close all devices
+        for (const auto &device: m_hidDeviceMap) {
+            device->close();
+            Q_EMIT sigDeviceStatus(device->getDeviceInfo()->path,HIDDef::Device_Closed);
+        }
+    }
+    else {
+        auto *device = getDevice(path);
+        if (device == nullptr) {
+            return -1;
+        }
+        device->close();
+        Q_EMIT sigDeviceStatus(path,HIDDef::Device_Closed);
+    }
+    return 0;
+}
+
+void HIDWork::stop()
+{
+    m_isStop = true;
+    wait();
+}
+
+void HIDWork::run()
+{
+    while (!m_isStop) {
+        if (m_cmdList.isEmpty()) {
+            msleep(100);
+            continue;
+        }
+        const auto command = m_cmdList.takeFirst();
+        if (command.path.isEmpty()) {
+            continue;
+        }
+        if (command.code == 0) {
+            continue;
+        }
+
+        const auto *device = getDevice(command.path);
+        if (device == nullptr) {
+            continue;
+        }
+        if (!device->sendCommand(command.code, command.data)) {
+            continue;
+        }
+
+        QByteArray receive;
+        device->receiveCommand(receive, command.timeout);
+        Q_EMIT sigReceiveCommand(command.path, device->frame());
+        msleep(10);
+    }
+}
+
+void HIDWork::addCommand(const QString& path, const int cmd, const QByteArray& send, const int timeout)
+{
+    CMD command;
+    command.path = path;
+    command.code = cmd;
+    command.data = send;
+    command.timeout = timeout;
+    m_cmdList.append(command);
 }

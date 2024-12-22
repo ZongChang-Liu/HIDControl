@@ -9,8 +9,8 @@
 #pragma execution_character_set(push, "utf-8")
 #include <QObject>
 
-#define OFFSET_QUERY
-#define OFFSET_UPDATE
+#define VERSION "0.3.1"
+
 namespace HIDDef
 {
     Q_NAMESPACE
@@ -20,6 +20,7 @@ namespace HIDDef
         Device_Opened = 0,
         Device_Closed = 1,
         Device_Error = 2,
+        Device_Not_Found = 3,
     };
 
     enum TempType
@@ -31,7 +32,7 @@ namespace HIDDef
 
     enum CmdCode
     {
-        Setting_Temp_Type = 0x0001,
+        Setting_Temp_Unit = 0x0001,
         Setting_Value_Threshold = 0x0002,
         Setting_Log_Interval = 0x0003,
         Setting_Start_Delay = 0x0004,

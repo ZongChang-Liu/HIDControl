@@ -20,6 +20,8 @@ public:
     QByteArray m_date{};
     uint16_t m_length{0};
 
+    void reset();
+
     static uint8_t* createCommand(HIDDataFrame &frame);
 
     static bool parseCommand(const uint8_t* data,int length, HIDDataFrame &frame);
@@ -27,8 +29,8 @@ public:
     friend QDebug operator<<(QDebug debug, const HIDDataFrame &frame);
 
 private:
-    static const uint8_t m_frameHead{0xAA};
-    static const uint8_t m_frameTail{0x55};
+    static constexpr uint8_t m_frameHead{0xAA};
+    static constexpr uint8_t m_frameTail{0x55};
     uint16_t m_frameNumber{0};
 };
 

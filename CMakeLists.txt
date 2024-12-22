@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.20)
 set(PROJECT_NAME "HIDControl")
-project(HIDControl VERSION 0.0.1 LANGUAGES C CXX)
+project(HIDControl VERSION 0.2.1 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_AUTOMOC ON)
@@ -9,7 +9,7 @@ set(CMAKE_AUTOUIC ON)
 
 set(ELAWIDGETTOOLS_PREFIX_DIR "${PROJECT_SOURCE_DIR}/3rdparty/ElaWidgetTools")
 set(HIDAPI_PREFIX_DIR "${PROJECT_SOURCE_DIR}/3rdparty/hidapi")
-set(CMAKE_PREFIX_PATH "C:/Qt5/Qt5.15.2/5.15.2/msvc2019_64" "${ELAWIDGETTOOLS_PREFIX_DIR}/lib/cmake" "${HIDAPI_PREFIX_DIR}/lib/cmake")
+set(CMAKE_PREFIX_PATH "${ELAWIDGETTOOLS_PREFIX_DIR}/lib/cmake" "${HIDAPI_PREFIX_DIR}/lib/cmake")
 
 set(QT_MODULES
         Core
@@ -28,7 +28,9 @@ qt5_add_big_resources(PROJECT_SOURCES resources.qrc ${ELAWIDGETTOOLS_PREFIX_DIR}
 include_directories(${PROJECT_NAME} "src")
 add_executable(${PROJECT_NAME}
 #        WIN32
-        main.cpp ${HEADERS} ${SOURCES} ${PROJECT_SOURCES} logo.rc)
+        main.cpp ${HEADERS} ${SOURCES} ${PROJECT_SOURCES} logo.rc
+        src/control/HIDDevice.cpp
+        src/control/HIDDevice.h)
 foreach (QT_MODULE ${QT_MODULES})
     target_link_libraries(${PROJECT_NAME} PUBLIC Qt${QT_VERSION_MAJOR}::${QT_MODULE})
 endforeach (QT_MODULE)

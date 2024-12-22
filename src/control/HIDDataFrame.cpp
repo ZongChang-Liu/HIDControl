@@ -9,6 +9,14 @@
 
 #include "CRC16.h"
 
+void HIDDataFrame::reset()
+{
+    m_userType = 0;
+    m_userId = 0;
+    m_code = 0;
+    m_date = QByteArray();
+}
+
 unsigned char* HIDDataFrame::createCommand(HIDDataFrame& frame)
 {
     frame.m_length = sizeof(HIDDataFrame::m_frameHead) + sizeof(frame.m_frameNumber) + sizeof (frame.m_length)+ sizeof(frame.m_userType) + sizeof(frame.m_userId) +
@@ -66,15 +74,15 @@ unsigned char* HIDDataFrame::createCommand(HIDDataFrame& frame)
 
 bool HIDDataFrame::parseCommand(const unsigned char* data, int length, HIDDataFrame& frame)
 {
-    QByteArray cmdData((char*)data, length);
+    const QByteArray cmdData((char*)data, length);
 
     //先检查head和tail
-    int indexHead = cmdData.indexOf((int8_t)m_frameHead);
+    int indexHead = cmdData.indexOf(static_cast<int8_t>(m_frameHead));
     if (indexHead == -1) {
         return false;
     }
 
-    int indexTail = cmdData.indexOf(m_frameTail);
+    int indexTail = cmdData.indexOf(static_cast<int8_t>(m_frameTail));
     if (indexTail == -1) {
         return false;
     }
@@ -82,13 +90,13 @@ bool HIDDataFrame::parseCommand(const unsigned char* data, int length, HIDDataFr
     while (indexTail != -1) {
         auto* frameData = new unsigned char[indexTail - indexHead + 1];
         memcpy(frameData, data + indexHead, indexTail - indexHead + 1);
-        uint16_t frameLength = frameData[3] | frameData[4] << 8;
+        int frameLength = frameData[3] | frameData[4] << 8;
         if (frameLength != indexTail - indexHead + 1) {
             indexTail = cmdData.indexOf(m_frameTail, indexTail + 1);
             continue;
         }
         qDebug() << "HIDDataFrame----->" << __func__ << QByteArray(reinterpret_cast<const char*>(frameData), frameLength).toHex();
-        uint16_t crc = frameData[frameLength - 3] | frameData[frameLength - 2] << 8;
+        const uint16_t crc = frameData[frameLength - 3] | frameData[frameLength - 2] << 8;
         uint16_t crcCal = CRC16::calculate(frameData, frameLength - 3);
         if (crc != crcCal) {
             qDebug() << "HIDDataFrame----->" << __func__ << "crc error";
@@ -101,8 +109,7 @@ bool HIDDataFrame::parseCommand(const unsigned char* data, int length, HIDDataFr
         frame.m_userType = frameData[5];
         frame.m_userId = frameData[6] | frameData[7] << 8 | frameData[8] << 16 | frameData[9] << 24;
         frame.m_code = frameData[10] | frameData[11] << 8;
-        frame.m_date = QByteArray((char*)frameData + 12, frameLength - 15);
-        qDebug() << "HIDDataFrame----->" << __func__ << frame;
+        frame.m_date = QByteArray(reinterpret_cast<char*>(frameData) + 12, frameLength - 15);
         return true;
     }
 
